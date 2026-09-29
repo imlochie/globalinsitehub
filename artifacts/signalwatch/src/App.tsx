@@ -4,10 +4,9 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { SignalShell } from '@/components/shell';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import EventMapPage from '@/pages/event-map';
 import NotFound from '@/pages/not-found';
-import MonitoringPage from '@/pages/monitoring';
 import SourcesPage from '@/pages/sources';
+import SectorsPage from '@/pages/sectors';
 import {
   Route,
   Switch,
@@ -24,14 +23,23 @@ function Router() {
     <RoutedErrorBoundary>
       <SignalShell>
         <Switch>
-          <Route path="/" component={MonitoringPage} />
-          <Route path="/map" component={EventMapPage} />
+          <Route path="/" component={WorkspaceSectorEntry} />
+          <Route path="/map" component={EventMapSectorEntry} />
+          <Route path="/sectors" component={() => <SectorsPage />} />
           <Route path="/sources" component={SourcesPage} />
           <Route component={NotFound} />
         </Switch>
       </SignalShell>
     </RoutedErrorBoundary>
   );
+}
+
+function WorkspaceSectorEntry() {
+  return <SectorsPage initialView="workspace" />;
+}
+
+function EventMapSectorEntry() {
+  return <SectorsPage initialView="map" />;
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {

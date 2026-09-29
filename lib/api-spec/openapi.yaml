@@ -11,7 +11,7 @@ tags:
   - name: health
     description: Health operations
   - name: monitoring
-    description: Public news and global event monitoring
+    description: Public news, global events, and camera catalogue monitoring
 paths:
   /healthz:
     get:
@@ -55,6 +55,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MonitoringBriefing"
+  /monitoring/cameras:
+    get:
+      operationId: getMonitoringCameras
+      tags: [monitoring]
+      summary: Get normalized public camera catalogue metadata
+      description: Returns camera metadata from registered providers. Provider availability describes catalogue access only; individual camera feeds are not probed or proxied.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Optional case-insensitive filter across camera names, descriptions, locations, postcodes, formats, and source URLs.
+          schema:
+            type: string
+            maxLength: 120
+        - name: country
+          in: query
+          required: false
+          description: Optional country filter. Accepts a country name or ISO 3166-1 alpha-2 code such as Australia or AU.
+          schema:
+            type: string
+            maxLength: 80
+        - name: provider
+          in: query
+          required: false
+          description: Optional exact match on the stable provider ID, such as qld-tmr.
+          schema:
+            type: string
+            maxLength: 64
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of cameras to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 250
+            default: 100
+      responses:
+        "200":
+          description: Normalized camera catalogue and provider health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringCamerasResponse"
 components:
   schemas:
     HealthStatus:
@@ -194,4 +238,160 @@ components:
           format: date-time
         message:
           type: string
+    MonitoringCamerasResponse:
+      type: object
+      required:
+        - generatedAt
+        - matchedCount
+        - returnedCount
+        - limit
+        - providers
+        - cameras
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        matchedCount:
+          type: integer
+          description: Number of cameras matching the optional filter before the result limit is applied.
+        returnedCount:
+          type: integer
+        limit:
+          type: integer
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CameraProviderStatus"
+        cameras:
+          type: array
+          items:
+            $ref: "#/components/schemas/CameraRecord"
+    CameraProviderStatus:
+      type: object
+      required:
+        - id
+        - name
+        - attribution
+        - catalogueUrl
+        - status
+        - feedReachability
+        - cameraCount
+        - checkedAt
+        - lastSuccessfulFetchAt
+        - message
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        attribution:
+          type: string
+        catalogueUrl:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [available, stale, unavailable]
+          description: Health of the provider catalogue request, not of its individual camera feeds.
+        feedReachability:
+          type: string
+          enum: [not-probed]
+        cameraCount:
+          type: integer
+          minimum: 0
+        checkedAt:
+          type: string
+          format: date-time
+        lastSuccessfulFetchAt:
+          type: ["string", "null"]
+          format: date-time
+        message:
+          type: string
+    CameraRecord:
+      type: object
+      required:
+        - id
+        - provider
+        - displayName
+        - description
+        - country
+        - region
+        - subregion
+        - latitude
+        - longitude
+        - direction
+        - sourceUrl
+        - encoding
+        - format
+        - imageUpdateRateMs
+        - streamKind
+        - feedStatus
+        - publicAccess
+        - attribution
+        - catalogueUrl
+      properties:
+        id:
+          type: string
+          description: Stable provider-scoped identifier derived from the canonical feed URL.
+        provider:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: ["string", "null"]
+        country:
+          type: string
+        countryCode:
+          type: string
+          pattern: "^[A-Z]{2}$"
+          description: Optional ISO 3166-1 alpha-2 country code.
+        region:
+          type: ["string", "null"]
+        subregion:
+          type: ["string", "null"]
+        district:
+          type: ["string", "null"]
+          description: Optional provider-specific district name.
+        locality:
+          type: ["string", "null"]
+          description: Optional locality within the region.
+        postcode:
+          type: ["string", "null"]
+          description: Postal code stored as text to preserve leading zeroes.
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+        direction:
+          type: ["string", "null"]
+        sourceUrl:
+          type: string
+          format: uri
+          description: Original provider-listed feed URL; Signalwatch does not proxy it.
+        encoding:
+          type: ["string", "null"]
+        format:
+          type: ["string", "null"]
+        imageUpdateRateMs:
+          type: ["integer", "null"]
+          minimum: 1
+        streamKind:
+          type: string
+          enum: [image, video, snapshot, unknown]
+        feedStatus:
+          type: string
+          enum: [not-probed]
+        publicAccess:
+          type: string
+          enum: [catalogue-listed, unknown]
+          description: Whether the entry is listed in a public catalogue; this does not assert stream reachability or reuse rights.
+        attribution:
+          type: string
+        catalogueUrl:
+          type: string
+          format: uri
 

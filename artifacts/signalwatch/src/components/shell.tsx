@@ -1,154 +1,203 @@
-import { BarChart3, CircleDot, ExternalLink, Layers3, Map, Radio, Radar, Settings2, Waypoints } from 'lucide-react';
-import { Link, useLocation } from 'wouter';
-import { useState, type ReactNode } from 'react';
+import { Globe, Radio, Settings2, Waypoints } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+
+const reduceMotionStorageKey = "signalwatch:reduce-motion";
 
 const navItems = [
-  { href: '/', label: 'Workspace', icon: Radar },
-  { href: '/map', label: 'Event map', icon: Map },
-  { href: '/sources', label: 'Sources', icon: Radio },
-];
-
-const liveShortcuts = [
-  { name: 'BBC World Service', detail: 'Global radio', url: 'https://www.bbc.co.uk/worldserviceradio' },
-  { name: 'DW News', detail: 'International video', url: 'https://www.dw.com/en/live-tv/s-100825' },
-  { name: 'FRANCE 24', detail: 'Continuous news', url: 'https://www.france24.com/en/live' },
+  {
+    href: "/sectors",
+    label: "Intelligence sectors",
+    shortLabel: "Sectors",
+    icon: Globe,
+  },
+  { href: "/sources", label: "Sources", shortLabel: "Sources", icon: Radio },
 ];
 
 export function SignalShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(readReduceMotionPreference);
+  const isIntelligenceArea =
+    location === "/" || location === "/map" || location.startsWith("/sectors");
+  const isSectorPreview = isIntelligenceArea;
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (reduceMotion) {
+      root.dataset.reduceMotion = "true";
+    } else {
+      delete root.dataset.reduceMotion;
+    }
+    try {
+      window.localStorage.setItem(reduceMotionStorageKey, String(reduceMotion));
+    } catch {
+      // The preference still applies for this session if storage is unavailable.
+    }
+  }, [reduceMotion]);
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[250px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground lg:flex">
-        <ShellBrand />
-        <div className="flex-1 overflow-y-auto px-3 pb-5">
-          <p className="mb-2 px-3 pt-6 font-mono text-[10px] uppercase tracking-[0.2em] text-sidebar-foreground/45">Monitor</p>
-          <nav className="space-y-1" aria-label="Primary navigation">
-            {navItems.map(({ href, label, icon: Icon }) => {
-              const active = href === '/' ? location === '/' : location.startsWith(href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  data-testid={`link-nav-${label.toLowerCase().replaceAll(' ', '-')}`}
-                  onClick={() => setMobileOpen(false)}
-                  className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                    active
-                      ? 'bg-sidebar-primary font-semibold text-sidebar-primary-foreground'
-                      : 'text-sidebar-foreground/65 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                  }`}
-                >
-                  <Icon className="size-4" strokeWidth={active ? 2.4 : 1.8} />
-                  {label}
-                  {active && <span className="ml-auto size-1.5 rounded-full bg-sidebar-primary-foreground/70" />}
-                </Link>
-              );
-            })}
-          </nav>
+    <div
+      className={`min-h-[100dvh] ${
+        isSectorPreview
+          ? "bg-[#070a10] text-slate-100"
+          : "bg-background text-foreground"
+      }`}
+    >
+      <header
+        className={`sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b px-3 backdrop-blur-md sm:px-5 lg:px-8 ${
+          isSectorPreview
+            ? "border-white/10 bg-[#070a10]/90 text-slate-100"
+            : "border-border bg-background/90"
+        }`}
+      >
+        <Link
+          href="/sectors"
+          data-testid="link-shell-home"
+          aria-label="Signalwatch intelligence sectors"
+          className="flex shrink-0 items-center gap-2.5"
+        >
+          <span
+            className={`flex size-8 items-center justify-center rounded-lg ${
+              isSectorPreview
+                ? "border border-cyan-200/20 bg-cyan-200/[0.08] text-cyan-100"
+                : "bg-primary text-primary-foreground"
+            }`}
+          >
+            <Waypoints className="size-4" />
+          </span>
+          <span
+            className={`text-sm font-semibold tracking-tight ${
+              isSectorPreview ? "text-slate-100" : "text-foreground"
+            }`}
+          >
+            Signalwatch
+          </span>
+        </Link>
 
-          <p className="mb-2 px-3 pt-8 font-mono text-[10px] uppercase tracking-[0.2em] text-sidebar-foreground/45">Quick listen</p>
-          <div className="space-y-1.5">
-            {liveShortcuts.map((shortcut) => (
-              <a
-                key={shortcut.name}
-                href={shortcut.url}
-                target="_blank"
-                rel="noreferrer"
-                data-testid={`link-shortcut-${shortcut.name.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`}
-                className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        <nav
+          className={`flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-xl border p-1 ${
+            isSectorPreview
+              ? "border-white/10 bg-white/[0.025]"
+              : "border-border bg-muted/50"
+          }`}
+          aria-label="Primary navigation"
+        >
+          {navItems.map(({ href, label, shortLabel, icon: Icon }) => {
+            const active =
+              href === "/sectors"
+                ? isIntelligenceArea
+                : location.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                data-testid={`link-nav-${label.toLowerCase().replaceAll(" ", "-")}`}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-[10px] font-medium transition-colors sm:gap-2 sm:px-3 sm:text-xs ${
+                  active
+                    ? isSectorPreview
+                      ? "bg-cyan-200/15 text-cyan-100 shadow-sm"
+                      : "bg-background text-foreground shadow-sm"
+                    : isSectorPreview
+                      ? "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+                      : "text-muted-foreground hover:bg-background/70 hover:text-foreground"
+                }`}
               >
-                <span className="flex size-6 items-center justify-center rounded-md border border-sidebar-border bg-sidebar-accent/50 font-mono text-[9px] font-medium text-sidebar-foreground/75">
-                  {shortcut.name.slice(0, 2).toUpperCase()}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs">{shortcut.name}</span>
-                  <span className="block truncate font-mono text-[9px] text-sidebar-foreground/40">{shortcut.detail}</span>
-                </span>
-                <ExternalLink className="size-3 opacity-0 transition-opacity group-hover:opacity-70" />
-              </a>
-            ))}
-          </div>
+                <Icon className="size-3.5" strokeWidth={active ? 2.2 : 1.8} />
+                <span className="sm:hidden">{shortLabel}</span>
+                <span className="hidden sm:inline">{label}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-          <div className="mt-8 rounded-xl border border-sidebar-border bg-sidebar-accent/50 p-3">
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              <CircleDot className="size-3.5 text-sidebar-primary" />
-              Public feed policy
-            </div>
-            <p className="mt-2 text-[11px] leading-4 text-sidebar-foreground/48">
-              Signalwatch shows what a source returned. Every item keeps its original attribution.
-            </p>
-          </div>
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <span
+            className={`hidden items-center gap-2 font-mono text-[9px] uppercase tracking-[0.12em] xl:flex ${
+              isSectorPreview ? "text-amber-200/75" : "text-muted-foreground"
+            }`}
+          >
+            <span
+              className={`size-1.5 rounded-full ${
+                isSectorPreview ? "bg-amber-300" : "animate-pulse bg-emerald-600"
+              }`}
+            />
+            {isSectorPreview
+              ? "sample sectors · sourced views"
+              : "polling public feeds"}
+          </span>
+          <button
+            type="button"
+            data-testid="button-settings"
+            className={`flex rounded-md p-2 transition-colors ${
+              isSectorPreview
+                ? "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+            aria-label="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings2 className="size-4" />
+          </button>
         </div>
-        <div className="border-t border-sidebar-border px-4 py-3">
-          <div className="flex items-center justify-between text-[10px] text-sidebar-foreground/40">
-            <span className="font-mono uppercase tracking-[0.14em]">Signalwatch</span>
-            <span>v0.1</span>
-          </div>
-        </div>
-      </aside>
-
-      <div className="lg:pl-[250px]">
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md sm:px-6 lg:px-9">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              data-testid="button-toggle-navigation"
-              className="rounded-md p-2 text-muted-foreground hover:bg-muted lg:hidden"
-              aria-label="Toggle navigation"
+      </header>
+      <main className="min-w-0">{children}</main>
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent
+          className={
+            isSectorPreview
+              ? "border-white/10 bg-[#0d131d] text-slate-100"
+              : undefined
+          }
+        >
+          <DialogHeader>
+            <DialogTitle>Display settings</DialogTitle>
+            <DialogDescription
+              className={isSectorPreview ? "text-slate-400" : undefined}
             >
-              <Layers3 className="size-5" />
-            </button>
-            <div className="flex items-center gap-2 lg:hidden">
-              <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground"><Waypoints className="size-4" /></span>
-              <span className="font-semibold tracking-tight">Signalwatch</span>
+              Adjust motion effects across Signalwatch.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-between gap-6 rounded-lg border border-current/10 p-4">
+            <div className="space-y-1">
+              <Label htmlFor="reduce-motion">Reduce motion</Label>
+              <p
+                id="reduce-motion-description"
+                className={`text-xs leading-5 ${
+                  isSectorPreview ? "text-slate-400" : "text-muted-foreground"
+                }`}
+              >
+                Minimize animations and turn off smooth scrolling.
+              </p>
             </div>
-            <div className="hidden items-center gap-2 text-xs text-muted-foreground lg:flex">
-              <BarChart3 className="size-3.5" />
-              <span>Public signal monitor</span>
-              <span className="mx-1 text-border">/</span>
-              <span className="font-mono text-[10px] uppercase tracking-wider">{location === '/' ? 'workspace' : location.slice(1)}</span>
-            </div>
+            <Switch
+              id="reduce-motion"
+              checked={reduceMotion}
+              onCheckedChange={setReduceMotion}
+              aria-describedby="reduce-motion-description"
+            />
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:flex">
-              <span className="size-1.5 animate-pulse rounded-full bg-emerald-600" />
-              polling public feeds
-            </span>
-            <button type="button" data-testid="button-settings" className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Settings">
-              <Settings2 className="size-4" />
-            </button>
-          </div>
-        </header>
-        {mobileOpen && (
-          <div className="fixed inset-x-0 top-16 z-30 border-b border-border bg-sidebar px-4 py-4 text-sidebar-foreground shadow-lg lg:hidden">
-            <nav className="space-y-1">
-              {navItems.map(({ href, label, icon: Icon }) => (
-                <Link key={href} href={href} onClick={() => setMobileOpen(false)} data-testid={`link-mobile-${label.toLowerCase().replaceAll(' ', '-')}`} className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm hover:bg-sidebar-accent">
-                  <Icon className="size-4" /> {label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        )}
-        <main>{children}</main>
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-function ShellBrand() {
-  return (
-    <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-5">
-      <span className="relative flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-        <Waypoints className="size-4.5" />
-        <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full border-2 border-sidebar bg-emerald-400" />
-      </span>
-      <div>
-        <div className="font-semibold tracking-tight">Signalwatch</div>
-        <div className="font-mono text-[9px] uppercase tracking-[0.2em] text-sidebar-foreground/40">public intelligence</div>
-      </div>
-    </div>
-  );
+function readReduceMotionPreference() {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(reduceMotionStorageKey) === "true";
+  } catch {
+    return false;
+  }
 }

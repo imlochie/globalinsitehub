@@ -72,3 +72,82 @@ export const GetMonitoringBriefingResponse = zod.object({
 })
 
 
+/**
+ * Returns camera metadata from registered providers. Provider availability describes catalogue access only; individual camera feeds are not probed or proxied.
+ * @summary Get normalized public camera catalogue metadata
+ */
+export const getMonitoringCamerasQueryQMax = 120;
+
+export const getMonitoringCamerasQueryCountryMax = 80;
+
+export const getMonitoringCamerasQueryProviderMax = 64;
+
+export const getMonitoringCamerasQueryLimitDefault = 100;
+export const getMonitoringCamerasQueryLimitMax = 250;
+
+
+
+export const GetMonitoringCamerasQueryParams = zod.object({
+  "q": zod.coerce.string().max(getMonitoringCamerasQueryQMax).optional().describe('Optional case-insensitive filter across camera names, descriptions, locations, postcodes, formats, and source URLs.'),
+  "country": zod.coerce.string().max(getMonitoringCamerasQueryCountryMax).optional().describe('Optional country filter. Accepts a country name or ISO 3166-1 alpha-2 code such as Australia or AU.'),
+  "provider": zod.coerce.string().max(getMonitoringCamerasQueryProviderMax).optional().describe('Optional exact match on the stable provider ID, such as qld-tmr.'),
+  "limit": zod.coerce.number().int().min(1).max(getMonitoringCamerasQueryLimitMax).default(getMonitoringCamerasQueryLimitDefault).describe('Maximum number of cameras to return.')
+})
+
+export const getMonitoringCamerasResponseProvidersItemCameraCountMin = 0;
+
+export const getMonitoringCamerasResponseCamerasItemCountryCodeRegExp = new RegExp('^[A-Z]{2}$');
+export const getMonitoringCamerasResponseCamerasItemLatitudeMin = -90;
+export const getMonitoringCamerasResponseCamerasItemLatitudeMax = 90;
+
+export const getMonitoringCamerasResponseCamerasItemLongitudeMin = -180;
+export const getMonitoringCamerasResponseCamerasItemLongitudeMax = 180;
+
+
+
+
+export const GetMonitoringCamerasResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "matchedCount": zod.number().int().describe('Number of cameras matching the optional filter before the result limit is applied.'),
+  "returnedCount": zod.number().int(),
+  "limit": zod.number().int(),
+  "providers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "attribution": zod.string(),
+  "catalogueUrl": zod.string().url(),
+  "status": zod.enum(['available', 'stale', 'unavailable']).describe('Health of the provider catalogue request, not of its individual camera feeds.'),
+  "feedReachability": zod.enum(['not-probed']),
+  "cameraCount": zod.number().int().min(getMonitoringCamerasResponseProvidersItemCameraCountMin),
+  "checkedAt": zod.coerce.date(),
+  "lastSuccessfulFetchAt": zod.coerce.date().nullable(),
+  "message": zod.string()
+})),
+  "cameras": zod.array(zod.object({
+  "id": zod.string().describe('Stable provider-scoped identifier derived from the canonical feed URL.'),
+  "provider": zod.string(),
+  "displayName": zod.string(),
+  "description": zod.string().nullable(),
+  "country": zod.string(),
+  "countryCode": zod.string().regex(getMonitoringCamerasResponseCamerasItemCountryCodeRegExp).optional().describe('Optional ISO 3166-1 alpha-2 country code.'),
+  "region": zod.string().nullable(),
+  "subregion": zod.string().nullable(),
+  "district": zod.string().nullish().describe('Optional provider-specific district name.'),
+  "locality": zod.string().nullish().describe('Optional locality within the region.'),
+  "postcode": zod.string().nullish().describe('Postal code stored as text to preserve leading zeroes.'),
+  "latitude": zod.number().min(getMonitoringCamerasResponseCamerasItemLatitudeMin).max(getMonitoringCamerasResponseCamerasItemLatitudeMax),
+  "longitude": zod.number().min(getMonitoringCamerasResponseCamerasItemLongitudeMin).max(getMonitoringCamerasResponseCamerasItemLongitudeMax),
+  "direction": zod.string().nullable(),
+  "sourceUrl": zod.string().url().describe('Original provider-listed feed URL; Signalwatch does not proxy it.'),
+  "encoding": zod.string().nullable(),
+  "format": zod.string().nullable(),
+  "imageUpdateRateMs": zod.number().int().min(1).nullable(),
+  "streamKind": zod.enum(['image', 'video', 'snapshot', 'unknown']),
+  "feedStatus": zod.enum(['not-probed']),
+  "publicAccess": zod.enum(['catalogue-listed', 'unknown']).describe('Whether the entry is listed in a public catalogue; this does not assert stream reachability or reuse rights.'),
+  "attribution": zod.string(),
+  "catalogueUrl": zod.string().url()
+}))
+})
+
+

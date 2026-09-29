@@ -1,0 +1,45 @@
+.sector-earth-globe {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  outline: none;
+  touch-action: none;
+  background:
+    radial-gradient(ellipse at 50% 48%, rgba(37, 12, 48, .72), rgba(10, 4, 18, .88) 58%, #05020a 92%);
+}
+
+.sector-earth-globe:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(225, 139, 217, .7), inset 0 0 28px rgba(178, 69, 181, .08);
+}
+
+.sector-earth-globe canvas {
+  cursor: grab;
+}
+
+.sector-earth-globe canvas:active {
+  cursor: grabbing;
+}
+
+.sector-earth-globe.signal-mode canvas {
+  filter: saturate(.95) contrast(1.06) brightness(.86);
+}
+
+.sector-earth-globe.satellite-mode canvas {
+  filter: none;
+}
+
+.sector-globe-wash {
+  z-index: 2;
+  background:
+    radial-gradient(ellipse at 49% 47%, transparent 36%, rgba(12, 4, 19, .08) 66%, rgba(8, 2, 14, .38) 100%),
+    linear-gradient(rgba(200, 86, 193, .07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200, 86, 193, .07) 1px, transparent 1px);
+  background-size: auto, 56px 56px, 56px 56px;
+  mask-image: radial-gradient(ellipse at center, #000, transparent 85%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sector-earth-globe canvas {
+    scroll-behavior: auto;
+  }
+}

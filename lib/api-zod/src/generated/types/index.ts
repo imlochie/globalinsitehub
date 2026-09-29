@@ -6,9 +6,18 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './cameraProviderStatus';
+export * from './cameraProviderStatusFeedReachability';
+export * from './cameraProviderStatusStatus';
+export * from './cameraRecord';
+export * from './cameraRecordFeedStatus';
+export * from './cameraRecordPublicAccess';
+export * from './cameraRecordStreamKind';
 export * from './getMonitoringBriefingParams';
+export * from './getMonitoringCamerasParams';
 export * from './healthStatus';
 export * from './monitoringBriefing';
+export * from './monitoringCamerasResponse';
 export * from './monitoringEvent';
 export * from './monitoringHeadline';
 export * from './monitoringSource';
