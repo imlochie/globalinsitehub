@@ -1,0 +1,197 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: monitoring
+    description: Public news and global event monitoring
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /monitoring/briefing:
+    get:
+      operationId: getMonitoringBriefing
+      tags: [monitoring]
+      summary: Get the current public-source monitoring briefing
+      description: Returns recent headlines, geolocated public events, and source availability from public feeds.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Optional text filter applied to headlines and events.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of headlines and events to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 60
+            default: 40
+      responses:
+        "200":
+          description: Current monitoring briefing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringBriefing"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    MonitoringBriefing:
+      type: object
+      required:
+        - generatedAt
+        - headlineCount
+        - eventCount
+        - sourcesOnline
+        - headlines
+        - events
+        - sources
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        headlineCount:
+          type: integer
+        eventCount:
+          type: integer
+        sourcesOnline:
+          type: integer
+        headlines:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonitoringHeadline"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonitoringEvent"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonitoringSource"
+    MonitoringHeadline:
+      type: object
+      required:
+        - id
+        - title
+        - source
+        - url
+        - publishedAt
+        - language
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+          format: uri
+        publishedAt:
+          type: string
+          format: date-time
+        language:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+          format: uri
+        summary:
+          type: ["string", "null"]
+    MonitoringEvent:
+      type: object
+      required:
+        - id
+        - title
+        - category
+        - source
+        - url
+        - occurredAt
+        - latitude
+        - longitude
+        - magnitude
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+        source:
+          type: string
+        url:
+          type: string
+          format: uri
+        occurredAt:
+          type: string
+          format: date-time
+        latitude:
+          type: ["number", "null"]
+        longitude:
+          type: ["number", "null"]
+        magnitude:
+          type: ["number", "null"]
+        detail:
+          type: ["string", "null"]
+    MonitoringSource:
+      type: object
+      required:
+        - id
+        - name
+        - category
+        - attribution
+        - url
+        - status
+        - itemsReceived
+        - checkedAt
+        - message
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        attribution:
+          type: string
+        url:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [online, unavailable, configured, provider-needed, not-integrated]
+        itemsReceived:
+          type: integer
+        checkedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+

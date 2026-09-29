@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/signalwatch-mobile/"
+title = "Signalwatch Mobile"
+description = "A companion app for monitoring public global headlines and events on the go, with source attribution, alert-ready event details, and access to verified public broadcaster channels."
+version = "1.0.0"
+id = "artifacts/signalwatch-mobile"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/signalwatch-mobile/" ]
+localPort = 22048
+
+[services.development]
+run = "pnpm --filter @workspace/signalwatch-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/signalwatch-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/signalwatch-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "22048"
+BASE_PATH = "/signalwatch-mobile/"

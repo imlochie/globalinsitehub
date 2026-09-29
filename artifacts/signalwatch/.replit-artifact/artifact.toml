@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Signalwatch"
+description = "A live public-information monitoring workspace that brings global news, video sources, and event signals into one map-first view, with a companion mobile app."
+version = "1.0.0"
+id = "artifacts/signalwatch"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21186
+
+[services.development]
+run = "pnpm --filter @workspace/signalwatch run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/signalwatch", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/signalwatch/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21186"
+BASE_PATH = "/"
