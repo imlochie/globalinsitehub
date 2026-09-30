@@ -1,0 +1,30 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "55vcggceSjv9tiOC_FEuE"
+uri = "file://research/notes.md"
+type = "text"
+title = "Aircraft provider research notes"
+description = "Completed research plan, evidence checklist, findings, and unresolved provider questions."
+logical_id = "111b14d9-d836-4612-9260-73de6bfd4085"
+content_hash = "sha256:986bd1b400db226b3d6c658c1cb15f142e7eb602e984a66677699a8fec384597"
+size = 14101
+mtime_ms = 1790736860405
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:1d5555a8-2eb6-4679-a67e-797c1e8286ec/111b14d9-d836-4612-9260-73de6bfd4085/3c687fcb-39ad-465d-8392-b853ec65abe3"
+storage_version_token = "1790737575969699"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "Lp1Wafm8Cztd7ScYeGtsB"
+uri = "file://research/aircraft-data-provider-research.md"
+type = "text"
+title = "Aircraft data provider research"
+description = "Completed provider comparison and ADSB.lol terms/access verification; decision gate remains provider confirmation required."
+logical_id = "12ead68b-a5f9-48f5-b649-15a84770500a"
+content_hash = "sha256:c66f25d5dac6c3e5a5266142d7100db03712c9db9c02d348d625217752d3d32b"
+size = 28692
+mtime_ms = 1790736684321
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:1d5555a8-2eb6-4679-a67e-797c1e8286ec/12ead68b-a5f9-48f5-b649-15a84770500a/8574f0d8-b8b2-45be-9818-7f7e1f3441e8"
+storage_version_token = "1790737575216573"
+content_type = "text/markdown"
