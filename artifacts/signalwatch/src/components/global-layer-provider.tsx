@@ -1,3 +1,9 @@
+/**
+ * Global Layer Engine — runtime state.
+ *
+ * Holds only mutable state: which layers are enabled, layer filter state, and
+ * the shared selection. Static layer facts live in the layer registry.
+ */
 import {
   createContext,
   useCallback,
@@ -7,27 +13,39 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type {
-  ObservationIdentity,
-} from "@/lib/global-layers";
+import type { LayerEnablement, ObservationIdentity } from "@/lib/global-layers";
 import { clearLayerSelection } from "@/lib/global-layers";
+import {
+  layerRegistry,
+  type LayerFlags,
+  type LayerId,
+  type LayerRegistry,
+} from "@/lib/layer-registry";
 import type {
   CameraCountry,
   CameraProviderSelection,
 } from "@/hooks/use-camera-catalogue";
 
-type GlobalLayerContextValue = {
-  camerasEnabled: boolean;
-  setCamerasEnabled: (enabled: boolean) => void;
-  publicEventsEnabled: boolean;
-  setPublicEventsEnabled: (enabled: boolean) => void;
-  cameraCountry: CameraCountry;
+/**
+ * Per-layer filter state. Each layer that declares filtering capabilities owns
+ * one slice here; layers without filters contribute nothing.
+ */
+export type CameraLayerFilters = {
+  country: CameraCountry;
+  provider: CameraProviderSelection;
+  search: string;
+  debouncedSearch: string;
+};
+
+export type GlobalLayerContextValue = {
+  registry: LayerRegistry;
+  enabledLayers: LayerEnablement;
+  isLayerEnabled: (layerId: LayerId) => boolean;
+  setLayerEnabled: (layerId: LayerId, enabled: boolean) => void;
+  cameraFilters: CameraLayerFilters;
   setCameraCountry: (country: CameraCountry) => void;
-  cameraProvider: CameraProviderSelection;
   setCameraProvider: (provider: CameraProviderSelection) => void;
-  cameraSearch: string;
   setCameraSearch: (search: string) => void;
-  debouncedCameraSearch: string;
   selectedObservation: ObservationIdentity | null;
   selectObservation: (observation: ObservationIdentity) => void;
   clearSelectedObservation: () => void;
@@ -35,9 +53,16 @@ type GlobalLayerContextValue = {
 
 const GlobalLayerContext = createContext<GlobalLayerContextValue | null>(null);
 
-export function GlobalLayerProvider({ children }: { children: ReactNode }) {
-  const [camerasEnabled, setCamerasEnabledState] = useState(true);
-  const [publicEventsEnabled, setPublicEventsEnabledState] = useState(true);
+export function GlobalLayerProvider({
+  children,
+  registry = layerRegistry,
+}: {
+  children: ReactNode;
+  registry?: LayerRegistry;
+}) {
+  const [enabledLayers, setEnabledLayers] = useState<LayerFlags>(() =>
+    registry.defaultEnablement(),
+  );
   const [cameraCountry, setCameraCountryState] =
     useState<CameraCountry>("AU");
   const [cameraProvider, setCameraProviderState] =
@@ -55,30 +80,29 @@ export function GlobalLayerProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [cameraSearch]);
 
-  const setCamerasEnabled = useCallback((enabled: boolean) => {
-    setCamerasEnabledState(enabled);
-    if (!enabled) {
+  const setLayerEnabled = useCallback(
+    (layerId: LayerId, enabled: boolean) => {
+      setEnabledLayers((current) => ({ ...current, [layerId]: enabled }));
+      if (!enabled) {
         setSelectedObservation((selected) =>
-          clearLayerSelection(selected, "cameras"),
+          clearLayerSelection(selected, layerId),
         );
-    }
-  }, []);
+      }
+    },
+    [],
+  );
 
-  const setPublicEventsEnabled = useCallback((enabled: boolean) => {
-    setPublicEventsEnabledState(enabled);
-    if (!enabled) {
-      setSelectedObservation((selected) =>
-          clearLayerSelection(selected, "public-events"),
-      );
-    }
-  }, []);
+  const isLayerEnabled = useCallback(
+    (layerId: LayerId) => enabledLayers[layerId] === true,
+    [enabledLayers],
+  );
 
   const setCameraCountry = useCallback((country: CameraCountry) => {
     setCameraCountryState(country);
     setCameraProviderState("all");
-      setSelectedObservation((selected) =>
-        clearLayerSelection(selected, "cameras"),
-      );
+    setSelectedObservation((selected) =>
+      clearLayerSelection(selected, "cameras"),
+    );
   }, []);
 
   const setCameraProvider = useCallback(
@@ -102,34 +126,38 @@ export function GlobalLayerProvider({ children }: { children: ReactNode }) {
     setSelectedObservation(null);
   }, []);
 
+  const cameraFilters = useMemo<CameraLayerFilters>(
+    () => ({
+      country: cameraCountry,
+      provider: cameraProvider,
+      search: cameraSearch,
+      debouncedSearch: debouncedCameraSearch,
+    }),
+    [cameraCountry, cameraProvider, cameraSearch, debouncedCameraSearch],
+  );
+
   const value = useMemo<GlobalLayerContextValue>(
     () => ({
-      camerasEnabled,
-      setCamerasEnabled,
-      publicEventsEnabled,
-      setPublicEventsEnabled,
-      cameraCountry,
+      registry,
+      enabledLayers,
+      isLayerEnabled,
+      setLayerEnabled,
+      cameraFilters,
       setCameraCountry,
-      cameraProvider,
       setCameraProvider,
-      cameraSearch,
       setCameraSearch,
-      debouncedCameraSearch,
       selectedObservation,
       selectObservation,
       clearSelectedObservation,
     }),
     [
-      camerasEnabled,
-      setCamerasEnabled,
-      publicEventsEnabled,
-      setPublicEventsEnabled,
-      cameraCountry,
+      registry,
+      enabledLayers,
+      isLayerEnabled,
+      setLayerEnabled,
+      cameraFilters,
       setCameraCountry,
-      cameraProvider,
       setCameraProvider,
-      cameraSearch,
-      debouncedCameraSearch,
       selectedObservation,
       selectObservation,
       clearSelectedObservation,

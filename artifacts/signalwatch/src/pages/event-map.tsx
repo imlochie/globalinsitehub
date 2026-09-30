@@ -10,10 +10,11 @@ import { Link } from "wouter";
 import { BriefingError, BriefingLoading, EmptyState, InlineUpdating } from "@/components/briefing-states";
 import { CameraList } from "@/components/camera-list";
 import { GlobalLayerControl } from "@/components/global-layer-control";
+import { buildLayerPanels } from "@/components/layer-panels";
 import { GlobalObservationInspector } from "@/components/global-observation-inspector";
 import { SignalMap } from "@/components/map-panel";
 import { useGlobalLayerData } from "@/hooks/use-global-layer-data";
-import { normalizePublicEvent } from "@/lib/global-layers";
+import { normalizePublicEvent, selectedIdForLayer } from "@/lib/global-layers";
 import {
   formatAbsoluteTime,
   formatRelativeTime,
@@ -42,6 +43,7 @@ export default function EventMapPage() {
     [layerData.events],
   );
   const events = useMemo(() => {
+    if (!layerData.isLayerEnabled("public-events")) return [];
     const term = search.trim().toLowerCase();
     return layerData.events.filter((event: BriefingEvent) => {
       if (normalizePublicEvent(event) === null) return false;
@@ -54,16 +56,16 @@ export default function EventMapPage() {
       const categoryMatch = category === "all" || event.category === category;
       return textMatch && categoryMatch;
     });
-  }, [layerData.events, category, search]);
+  }, [layerData, category, search]);
 
-  const selectedCameraId =
-    layerData.selectedObservation?.layerId === "cameras"
-      ? layerData.selectedObservation.id
-      : null;
-  const selectedEventId =
-    layerData.selectedObservation?.layerId === "public-events"
-      ? layerData.selectedObservation.id
-      : null;
+  const selectedCameraId = selectedIdForLayer(
+    layerData.selectedObservation,
+    "cameras",
+  );
+  const selectedEventId = selectedIdForLayer(
+    layerData.selectedObservation,
+    "public-events",
+  );
 
   function selectCamera(cameraId: string) {
     layerData.selectObservation({ layerId: "cameras", id: cameraId });
@@ -75,39 +77,7 @@ export default function EventMapPage() {
     setPanelTab("events");
   }
 
-  const globalLayerControls = {
-    cameras: {
-      enabled: layerData.camerasEnabled,
-      onEnabledChange: layerData.setCamerasEnabled,
-      country: layerData.cameraCountry,
-      onCountryChange: layerData.setCameraCountry,
-      provider: layerData.cameraProvider,
-      onProviderChange: layerData.setCameraProvider,
-      search: layerData.cameraSearch,
-      onSearchChange: layerData.setCameraSearch,
-      providers: layerData.cameraCatalogue.providers,
-      requestedProviderIds: layerData.cameraCatalogue.requestedProviderIds,
-      matchedCount: layerData.cameraCatalogue.matchedCount,
-      returnedCount: layerData.cameraCatalogue.returnedCount,
-      isLoading: layerData.cameraCatalogue.isLoading,
-      isFetching: layerData.cameraCatalogue.isFetching,
-      hasError: layerData.cameraCatalogue.hasError,
-      isUnavailable: layerData.cameraCatalogue.isUnavailable,
-      isTruncated: layerData.cameraCatalogue.isTruncated,
-    },
-    publicEvents: {
-      enabled: layerData.publicEventsEnabled,
-      onEnabledChange: layerData.setPublicEventsEnabled,
-      isLoading: layerData.briefingLoading,
-      isError: layerData.briefingError,
-      locatedCount: layerData.locatedEventCount,
-      recordCount: layerData.eventRecordCount,
-      headlineCount: layerData.headlineCount,
-      sourcesOnline: layerData.sourcesOnline,
-      sourceCount: layerData.sourceCount,
-      generatedAt: layerData.briefingGeneratedAt,
-    },
-  };
+  const layerPanels = buildLayerPanels(layerData);
 
   return (
     <div className="signal-rise mx-auto max-w-[1500px] px-4 pb-12 sm:px-6 lg:px-9">
@@ -126,7 +96,7 @@ export default function EventMapPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {layerData.publicEventsEnabled &&
+          {layerData.isLayerEnabled("public-events") &&
             layerData.briefingFetching &&
             !layerData.briefingLoading && (
             <InlineUpdating />
@@ -141,12 +111,12 @@ export default function EventMapPage() {
         </div>
       </section>
 
-      {layerData.publicEventsEnabled && layerData.briefingLoading && (
+      {layerData.isLayerEnabled("public-events") && layerData.briefingLoading && (
         <div className="py-8">
           <BriefingLoading />
         </div>
       )}
-      {layerData.publicEventsEnabled &&
+      {layerData.isLayerEnabled("public-events") &&
         layerData.briefingError &&
         !layerData.briefingLoading && (
         <div className="py-8">
@@ -196,7 +166,7 @@ export default function EventMapPage() {
           </div>
 
           <GlobalLayerControl
-            {...globalLayerControls}
+            layers={layerPanels}
             className="mb-4 max-w-none"
             title="Operational public-source layers"
             description="Source-backed records only. Catalogue status describes provider metadata; feed reachability is not checked."
@@ -211,10 +181,10 @@ export default function EventMapPage() {
               onSelectCamera={selectCamera}
               onSelectEvent={selectEvent}
               loading={
-                layerData.publicEventsEnabled && layerData.briefingLoading
+                layerData.isLayerEnabled("public-events") && layerData.briefingLoading
               }
               error={
-                layerData.publicEventsEnabled && layerData.briefingError
+                layerData.isLayerEnabled("public-events") && layerData.briefingError
               }
             />
             <aside>
@@ -256,7 +226,7 @@ export default function EventMapPage() {
                   aria-controls="panel-map-cameras"
                   tabIndex={panelTab === "cameras" ? 0 : -1}
                   onClick={() => setPanelTab("cameras")}
-                  disabled={!layerData.camerasEnabled}
+                  disabled={!layerData.isLayerEnabled("cameras")}
                   data-testid="tab-map-cameras"
                   className={`flex-1 rounded-md px-3 py-2 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     panelTab === "cameras"
@@ -279,7 +249,7 @@ export default function EventMapPage() {
                     <EmptyState
                       title="No matching events"
                       detail={
-                        !layerData.publicEventsEnabled
+                        !layerData.isLayerEnabled("public-events")
                           ? "Enable the public events layer to inspect geolocated records."
                           : layerData.briefingLoading
                             ? "The public event briefing is still loading."

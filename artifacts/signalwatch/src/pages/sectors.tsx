@@ -15,6 +15,7 @@ import {
   type GlobeMode,
 } from "@/components/interactive-sector-globe";
 import { GlobalLayerControl } from "@/components/global-layer-control";
+import { buildLayerPanels } from "@/components/layer-panels";
 import { GlobalObservationInspector } from "@/components/global-observation-inspector";
 import { SectorPreviewPanel } from "@/components/sector-preview-panel";
 import { useGlobalLayerData } from "@/hooks/use-global-layer-data";
@@ -52,39 +53,7 @@ export default function SectorsPage({
   const [activeUpdateIndex, setActiveUpdateIndex] = useState(0);
   const layerData = useGlobalLayerData();
 
-  const globalLayerControls = {
-    cameras: {
-      enabled: layerData.camerasEnabled,
-      onEnabledChange: layerData.setCamerasEnabled,
-      country: layerData.cameraCountry,
-      onCountryChange: layerData.setCameraCountry,
-      provider: layerData.cameraProvider,
-      onProviderChange: layerData.setCameraProvider,
-      search: layerData.cameraSearch,
-      onSearchChange: layerData.setCameraSearch,
-      providers: layerData.cameraCatalogue.providers,
-      requestedProviderIds: layerData.cameraCatalogue.requestedProviderIds,
-      matchedCount: layerData.cameraCatalogue.matchedCount,
-      returnedCount: layerData.cameraCatalogue.returnedCount,
-      isLoading: layerData.cameraCatalogue.isLoading,
-      isFetching: layerData.cameraCatalogue.isFetching,
-      hasError: layerData.cameraCatalogue.hasError,
-      isUnavailable: layerData.cameraCatalogue.isUnavailable,
-      isTruncated: layerData.cameraCatalogue.isTruncated,
-    },
-    publicEvents: {
-      enabled: layerData.publicEventsEnabled,
-      onEnabledChange: layerData.setPublicEventsEnabled,
-      isLoading: layerData.briefingLoading,
-      isError: layerData.briefingError,
-      locatedCount: layerData.locatedEventCount,
-      recordCount: layerData.eventRecordCount,
-      headlineCount: layerData.headlineCount,
-      sourcesOnline: layerData.sourcesOnline,
-      sourceCount: layerData.sourceCount,
-      generatedAt: layerData.briefingGeneratedAt,
-    },
-  };
+  const layerPanels = buildLayerPanels(layerData);
 
   useEffect(() => {
     document.title = "Global layer engine — Signalwatch";
@@ -190,7 +159,7 @@ export default function SectorsPage({
         </section>
 
         <GlobalLayerControl
-          {...globalLayerControls}
+          layers={layerPanels}
           className="mt-5"
           title="Operational public-source layers"
           description="Enable bounded public records, inspect provider provenance, and keep feed reachability distinct from catalogue status."
@@ -298,16 +267,16 @@ export default function SectorsPage({
               activePulseIndex={activeUpdateIndex}
               onSelectSector={selectSector}
               cameras={layerData.cameraCatalogue.cameras}
-              events={layerData.events}
-              eventsLoading={
-                layerData.publicEventsEnabled && layerData.briefingLoading
+              events={
+                layerData.isLayerEnabled("public-events")
+                  ? layerData.events
+                  : []
               }
-              eventsError={
-                layerData.publicEventsEnabled && layerData.briefingError
-              }
+              eventsLoading={layerData.briefingLoading}
+              eventsError={layerData.briefingError}
               observations={layerData.globeObservations}
               selectedObservation={layerData.selectedObservation}
-              globeCameraOmitted={layerData.globeCameraOmitted}
+              globeSamples={layerData.globeSamples}
               onSelectObservation={(observation) => {
                 layerData.selectObservation(observation);
                 if (observation.layerId === "cameras") {
@@ -326,7 +295,7 @@ export default function SectorsPage({
             <SectorPreviewPanel
               sector={selectedSector}
               cameraLayer={{
-                enabled: layerData.camerasEnabled,
+                enabled: layerData.isLayerEnabled("cameras"),
                 returnedCount: layerData.cameraCatalogue.returnedCount,
                 matchedCount: layerData.cameraCatalogue.matchedCount,
                 isLoading: layerData.cameraCatalogue.isLoading,

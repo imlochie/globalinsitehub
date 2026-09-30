@@ -22,6 +22,8 @@ import type {
   GlobalObservation,
   ObservationIdentity,
 } from "@/lib/global-layers";
+import { observationMarkerStyle } from "@/lib/observation-style";
+import type { LayerId } from "@/lib/layer-registry";
 import "./satellite-sector-globe.css";
 
 type SectorLocation = {
@@ -42,6 +44,8 @@ type ObservationPoint = GlobalObservation & {
   lng: number;
   color: string;
   radius: number;
+  /** Registry-derived tooltip, so the globe never inspects layer specifics. */
+  tooltip: string;
   pointType: "observation";
 };
 
@@ -50,7 +54,8 @@ type SectorRing = {
   lng: number;
   maxR: number;
   kind: "focus" | "sample" | "observation";
-  observationLayer?: "cameras" | "public-events";
+  observationLayer?: LayerId;
+  observationColor?: string;
 };
 
 type GlobePoint = SectorPoint | ObservationPoint;
@@ -156,17 +161,14 @@ export function SatelliteSectorGlobe({
       })),
       ...observations.map((observation) => {
         const selected = observation.key === selectedObservation?.key;
-        const isCamera = observation.kind === "camera";
+        const style = observationMarkerStyle(observation);
         return {
           ...observation,
           lat: observation.latitude,
           lng: observation.longitude,
           pointType: "observation" as const,
-          color: selected
-            ? "#ffffff"
-            : isCamera
-              ? "#67e8f9"
-              : "#fbbf24",
+          color: selected ? "#ffffff" : style.markerColor,
+          tooltip: style.tooltip,
           radius: selected ? 0.32 : 0.075,
         };
       }),
@@ -195,6 +197,8 @@ export function SatelliteSectorGlobe({
               maxR: 2.6,
               kind: "observation" as const,
               observationLayer: selectedObservation.layerId,
+              observationColor:
+                observationMarkerStyle(selectedObservation).markerColor,
             },
           ]
         : []),
@@ -365,9 +369,7 @@ export function SatelliteSectorGlobe({
           if (item.pointType === "sector") {
             return `${item.name} · illustrative sector navigation marker`;
           }
-          return item.kind === "camera"
-            ? `${item.label} · camera catalogue record · feed not probed`
-            : `${item.label} · public event · ${item.sourceName}`;
+          return item.tooltip;
         }}
         onPointClick={(point) => {
           setAutoOrbit(false);
@@ -389,9 +391,7 @@ export function SatelliteSectorGlobe({
           const alpha = 0.72 * (1 - progress);
           if (data.kind === "focus") return `rgba(229, 133, 218, ${alpha})`;
           if (data.kind === "observation") {
-            return data.observationLayer === "cameras"
-              ? `rgba(103, 232, 249, ${alpha})`
-              : `rgba(251, 191, 36, ${alpha})`;
+            return withAlpha(data.observationColor ?? "#94a3b8", alpha);
           }
           return `rgba(176, 91, 184, ${alpha})`;
         }}
@@ -521,4 +521,23 @@ function GlobeControl({
       <Icon className="size-3.5" />
     </button>
   );
+}
+
+/** Converts a registry `#rrggbb` marker colour into an rgba ring colour. */
+function withAlpha(hexColor: string, alpha: number): string {
+  const hex = hexColor.replace("#", "");
+  const value = Number.parseInt(
+    hex.length === 3
+      ? hex
+          .split("")
+          .map((char) => char + char)
+          .join("")
+      : hex,
+    16,
+  );
+  if (!Number.isFinite(value)) return `rgba(148, 163, 184, ${alpha})`;
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }

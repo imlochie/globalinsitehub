@@ -26,8 +26,12 @@ import type { CameraRecord } from "@workspace/api-client-react";
 import type { BriefingEvent } from "@/lib/monitoring";
 import type {
   GlobalObservation,
+  LayerSampleSummary,
   ObservationIdentity,
 } from "@/lib/global-layers";
+import { selectedIdForLayer } from "@/lib/global-layers";
+import { observationMarkerStyle } from "@/lib/observation-style";
+import { layerRegistry } from "@/lib/layer-registry";
 
 const SatelliteSectorGlobe = lazy(() =>
   import("@/components/satellite-sector-globe").then((module) => ({
@@ -59,7 +63,8 @@ type SectorGlobeProps = {
   eventsError: boolean;
   observations: GlobalObservation[];
   selectedObservation: GlobalObservation | null;
-  globeCameraOmitted: number;
+  /** Per-layer sampling summaries produced by the layer engine. */
+  globeSamples: LayerSampleSummary[];
   onSelectObservation: (observation: ObservationIdentity) => void;
 };
 
@@ -137,7 +142,7 @@ export function InteractiveSectorGlobe({
   eventsError,
   observations,
   selectedObservation,
-  globeCameraOmitted,
+  globeSamples,
   onSelectObservation,
 }: SectorGlobeProps) {
   const activeUpdate = sampleUpdates[activePulseIndex % sampleUpdates.length];
@@ -242,14 +247,11 @@ export function InteractiveSectorGlobe({
               events={events}
               cameras={cameras}
               selectedCameraId={
-                selectedObservation?.kind === "camera"
-                  ? selectedObservation.id
-                  : undefined
+                selectedIdForLayer(selectedObservation, "cameras") ?? undefined
               }
               selectedEventId={
-                selectedObservation?.kind === "public-event"
-                  ? selectedObservation.id
-                  : undefined
+                selectedIdForLayer(selectedObservation, "public-events") ??
+                undefined
               }
               onSelectCamera={(id) =>
                 onSelectObservation({ layerId: "cameras", id })
@@ -285,22 +287,33 @@ export function InteractiveSectorGlobe({
             </span>
             {mode === "globe" ? (
               <>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-cyan-300" />
-                  Camera catalogue
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-1.5 rounded-full bg-amber-300" />
-                  Public event
-                </span>
-                {globeCameraOmitted > 0 && (
-                  <span
-                    className="text-cyan-100/75"
-                    data-testid="status-globe-camera-marker-cap"
-                  >
-                    {globeCameraOmitted.toLocaleString()} more on detailed map
-                  </span>
-                )}
+                {layerRegistry
+                  .operational()
+                  .filter((definition) => definition.capabilities.globe)
+                  .map((definition) => (
+                    <span
+                      key={String(definition.id)}
+                      className="inline-flex items-center gap-1.5"
+                      data-testid={`legend-layer-${String(definition.id)}`}
+                    >
+                      <span
+                        className="size-1.5 rounded-full"
+                        style={{ backgroundColor: definition.display.markerColor }}
+                      />
+                      {definition.display.legendLabel}
+                    </span>
+                  ))}
+                {globeSamples
+                  .filter((sample) => sample.omitted > 0)
+                  .map((sample) => (
+                    <span
+                      key={`omitted-${String(sample.layerId)}`}
+                      className="text-cyan-100/75"
+                      data-testid={`status-globe-marker-cap-${String(sample.layerId)}`}
+                    >
+                      {sample.omitted.toLocaleString()} more on detailed map
+                    </span>
+                  ))}
               </>
             ) : (
               <span className="inline-flex items-center gap-1.5">
@@ -498,14 +511,14 @@ function StaticSatelliteField({
       })}
       {observations.map((observation) => {
         const selected = observation.key === selectedObservation?.key;
-        const isCamera = observation.kind === "camera";
+        const style = observationMarkerStyle(observation);
         return (
           <button
             key={observation.key}
             type="button"
-            aria-label={`Inspect ${isCamera ? "camera" : "public event"}: ${observation.label}`}
+            aria-label={style.actionLabel}
             aria-pressed={selected}
-            title={`${observation.label} · ${isCamera ? "feed not probed" : observation.sourceName}`}
+            title={style.tooltip}
             data-testid={`fallback-observation-${observation.key}`}
             onClick={() =>
               onSelectObservation({
@@ -523,9 +536,7 @@ function StaticSatelliteField({
               className={`block rounded-full border ${
                 selected
                   ? "size-3 border-white bg-white shadow-[0_0_10px_rgba(255,255,255,0.85)]"
-                  : isCamera
-                    ? "size-2 border-cyan-100 bg-cyan-300 shadow-[0_0_7px_rgba(103,232,249,0.55)]"
-                    : "size-2 border-amber-100 bg-amber-300 shadow-[0_0_7px_rgba(251,191,36,0.55)]"
+                  : style.markerClassName
               }`}
             />
           </button>
@@ -848,18 +859,16 @@ function GlobeField({
             rotation,
           );
           if (point.depth <= 0.02) return null;
-          const isCamera = observation.kind === "camera";
           const selected = observation.key === selectedObservation?.key;
-          const sourceLabel = isCamera
-            ? `${observation.label} · public camera catalogue · feed not probed`
-            : `${observation.label} · public event · ${observation.sourceName}`;
+          const style = observationMarkerStyle(observation);
+          const sourceLabel = style.tooltip;
 
           return (
             <g
               key={observation.key}
               role="button"
               tabIndex={0}
-              aria-label={`Inspect ${isCamera ? "camera" : "public event"}: ${observation.label}`}
+              aria-label={style.actionLabel}
               aria-pressed={selected}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => {
@@ -893,14 +902,8 @@ function GlobeField({
                 cx={point.x}
                 cy={point.y}
                 r={selected ? 4.5 : 2.4}
-                fill={
-                  selected
-                    ? "#f8fafc"
-                    : isCamera
-                      ? "#67e8f9"
-                      : "#fbbf24"
-                }
-                stroke={selected ? "#ffffff" : isCamera ? "#cffafe" : "#fef3c7"}
+                fill={selected ? "#f8fafc" : style.markerColor}
+                stroke={selected ? "#ffffff" : style.markerStrokeColor}
                 strokeWidth={selected ? 1.4 : 0.7}
                 opacity={Math.min(1, 0.6 + point.depth * 0.4)}
                 filter={selected ? "url(#sector-neon-glow)" : undefined}
@@ -909,7 +912,7 @@ function GlobeField({
                 <text
                   x={point.x + 7}
                   y={point.y - 7}
-                  fill={isCamera ? "#a5f3fc" : "#fde68a"}
+                  fill={style.markerTextColor}
                   fontSize="7"
                   letterSpacing="0.4"
                   fontFamily="DM Mono, monospace"
