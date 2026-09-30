@@ -81,7 +81,11 @@ on its own.
 
 Left open deliberately rather than rejected.
 
-### 2.3 GDELT Project — **PERMISSION CLEARED, SEMANTICS NEED A DECISION**
+### 2.3 GDELT Project — **PERMISSION CLEARED, BUT THE GEOLOCATED ENDPOINT IS DOWN**
+
+> **VERDICT UPDATE (2026-09-30, after live probing): BLOCKED. Not implementable
+> today.** The licence is excellent and unchanged, but the only GDELT endpoint
+> that supplies coordinates returns HTTP 404. See §2.4.
 
 | Question | Finding |
 | --- | --- |
@@ -126,6 +130,51 @@ Presenting inferred mention-geography as event locations would be the same
 category of lie Phase J just removed — fabricated precision, just from a
 different direction.
 
+### 2.4 GDELT GEO 2.0 API — live probe results (blocking)
+
+Before writing any code, the endpoint was probed directly. Results:
+
+| URL probed | Result |
+| --- | --- |
+| `api/v2/geo/geo?query=trump` (GDELT's **own** documented example) | **404 Not Found** |
+| `api/v2/geo/geo?query=flood&format=geojson` | **404 Not Found** |
+| `api/v2/geo/geo?query=flooding&format=geojson&mode=pointdata` | **404 Not Found** |
+| `api/v2/doc/doc?query=flood&mode=artlist&format=json` | **200** — but returns a usage advisory, not data (below) |
+| `api/v1/gkg_geojson?QUERY=flood` (the superseded v1 GeoJSON API) | **200** with an **empty** `FeatureCollection` |
+
+The DOC 2.0 API's response was an advisory rather than articles:
+
+> Please limit requests to one every 5 seconds or contact
+> kalev.leetaru5@gmail.com for larger queries. All high-traffic users should
+> switch to our ngrams dataset…
+
+Three things follow, and none of them are guesses:
+
+1. **The coordinate-bearing endpoint is unavailable.** GEO 2.0 is the *only*
+   GDELT API that returns locations. Its own documented example URL 404s. The
+   v1 GeoJSON predecessor answers but returns nothing. So there is currently no
+   working GDELT path to coordinates.
+2. **This is a known, recurring condition, not a momentary blip.** A
+   live-validated third-party GDELT toolkit (May 2026) documents it plainly:
+   "GDELT's GEO endpoint is occasionally unavailable (HTTP 404) independent of
+   the DOC API."
+3. **GDELT has previously gone dark for funding reasons.** In mid-2025 the
+   project's APIs were reported down because the Google Cloud project behind
+   them had an inactive billing account. That is worth recording under the $0
+   invariant — not because it would cost Signalwatch anything, but because the
+   rule is "a provider Signalwatch can use *indefinitely*". A free service whose
+   uptime depends on a third party's cloud bill, and which has already gone dark
+   for that reason once, carries a documented continuity risk.
+
+**Consequence:** News Mentions cannot be built right now. Building it would mean
+inventing the GeoJSON property names, because the live contract cannot be
+observed — precisely the fabrication this project forbids. The rate-limit
+request (1 request / 5 s) is separately noted and would be easily satisfied by
+one server-side poll per 60 s, but that only matters if GEO returns.
+
+**Re-check condition:** probe the three GEO URLs above. If they return GeoJSON,
+capture the real property names, then implement against those bytes.
+
 ---
 
 ## 3. The architectural item: `sourceKind`
@@ -163,14 +212,23 @@ rather than being duplicated.
 
 ## 5. Recommendation
 
-Do **not** wire GDELT into `public-events` as-is.
+Decisions taken: the layer is to be named **News Mentions**, modelled as an
+aggregate observation (`NewsMentionObservation`), and kept separate from
+`public-events`. `sourceKind` has since landed.
 
-Preferred: if you are willing to authorise account creation, the state incident
-feeds (§2.2) are the honest "public events" source — official, surveyed
-coordinates, real civic events.
+**However, implementation is blocked** by §2.4: the GDELT GEO 2.0 endpoint
+returns 404, so there is no observable contract to build against. Nothing was
+implemented. The layer stays unregistered rather than shipped against a dead
+endpoint or invented field names.
 
-Otherwise: implement GDELT as its own clearly-named layer (e.g. *News coverage
-geography*) that says exactly what it is, and let `public-events` remain honest
-about having no mappable records until a real one exists. That keeps the map
-conceptually clean rather than re-merging three concepts into one `events[]`
-array — the exact failure Phase J corrected.
+Unblocking paths, in order of preference:
+
+1. **Re-probe GDELT GEO** later; it is known to be intermittently available. If
+   it answers, capture the real GeoJSON properties and build immediately — the
+   licence is already cleared and is the strongest in the project.
+2. **Authorise accounts for TfNSW / QLDTraffic** (§2.2). These give official,
+   surveyed coordinates for genuine civic events and would restore
+   `public-events` properly rather than substituting media attention for events.
+3. Accept that both remain unavailable, in which case `public-events` stays
+   honestly unmappable — which the UI now states explicitly rather than showing
+   a green "available" next to zero records.

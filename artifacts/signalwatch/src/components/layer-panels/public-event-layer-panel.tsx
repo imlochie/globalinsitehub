@@ -34,19 +34,43 @@ export function publicEventLayerPanel(
   input: PublicEventLayerPanelInput,
 ): LayerPanelModel {
   const definition = input.definition ?? layerRegistry.require('public-events');
+  /**
+   * A reachable feed that cannot place anything on the map is not a healthy
+   * layer. Since hazard records moved to the natural-hazards layer, the
+   * remaining public-event sources are news feeds, and news headlines carry no
+   * coordinates — so "available" with zero located records would read as
+   * "nothing is happening" when it actually means "nothing is mappable".
+   */
+  const reachableButUnmappable =
+    input.enabled &&
+    !input.isError &&
+    !input.isLoading &&
+    input.locatedCount === 0;
+
   const status = !input.enabled
     ? { label: 'Source status: not requested · layer off', tone: 'quiet' as const }
     : input.isError
       ? { label: 'Source status: unavailable', tone: 'bad' as const }
       : input.isLoading
         ? { label: 'Source status: checking', tone: 'quiet' as const }
-        : { label: 'Source status: available', tone: 'good' as const };
+        : reachableButUnmappable
+          ? {
+              label: 'Sources available · no mappable records',
+              tone: 'warn' as const,
+            }
+          : { label: 'Source status: available', tone: 'good' as const };
 
   return {
     definition,
     enabled: input.enabled,
     onEnabledChange: input.onEnabledChange,
     status,
+    note: reachableButUnmappable
+      ? 'Reporting only · nothing to place on the map'
+      : undefined,
+    noteTestId: reachableButUnmappable
+      ? 'text-public-events-unmappable'
+      : undefined,
     summary: (
       <span
         className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground"
@@ -73,5 +97,16 @@ export function publicEventLayerPanel(
         compact: true,
       },
     ],
+    details: reachableButUnmappable ? (
+      <p
+        className="rounded-lg border border-amber-200/15 bg-amber-200/[0.04] px-3 py-2 text-[10px] leading-4 text-slate-300/75"
+        data-testid="text-public-events-unmappable-note"
+      >
+        These sources are reachable and reporting, but news headlines carry no
+        coordinates, so this layer currently places nothing on the map. Empty
+        space here means Signalwatch has no geolocated public-reporting source
+        yet — not that nothing is being reported.
+      </p>
+    ) : undefined,
   };
 }

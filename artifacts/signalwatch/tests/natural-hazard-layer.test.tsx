@@ -458,3 +458,60 @@ test("hazard acquisition follows layer enablement and stays server-side", async 
   assert.doesNotMatch(feed, /eonet\.gsfc\.nasa\.gov/);
   assert.match(feed, /useGetMonitoringHazards/);
 });
+
+/* -------------------------------------------------------------------------- */
+/* Public events: honest empty state after the hazard split                   */
+/* -------------------------------------------------------------------------- */
+
+test("reachable public-event sources with nothing mappable do not read as healthy", async () => {
+  const { publicEventLayerPanel } = await import(
+    "../src/components/layer-panels/public-event-layer-panel"
+  );
+
+  const unmappable = publicEventLayerPanel({
+    enabled: true,
+    onEnabledChange: () => {},
+    isLoading: false,
+    isError: false,
+    locatedCount: 0,
+    recordCount: 0,
+    headlineCount: 48,
+    sourcesOnline: 4,
+    sourceCount: 4,
+    generatedAt: "2026-09-30T04:00:00.000Z",
+  });
+
+  // Feeds are up, but nothing can be placed: that is not a green state.
+  assert.equal(unmappable.status.tone, "warn");
+  assert.match(unmappable.status.label, /no mappable records/i);
+  assert.doesNotMatch(unmappable.status.label, /^Source status: available$/);
+
+  const markup = renderToStaticMarkup(
+    <Router ssrPath="/">
+      <GlobalLayerControl layers={[unmappable]} />
+    </Router>,
+  );
+  assert.match(markup, /text-public-events-unmappable-note/);
+  assert.match(markup, /not that nothing is being reported/i);
+});
+
+test("public events still reads as available once it can place records", async () => {
+  const { publicEventLayerPanel } = await import(
+    "../src/components/layer-panels/public-event-layer-panel"
+  );
+
+  const mappable = publicEventLayerPanel({
+    enabled: true,
+    onEnabledChange: () => {},
+    isLoading: false,
+    isError: false,
+    locatedCount: 12,
+    recordCount: 20,
+    headlineCount: 48,
+    sourcesOnline: 4,
+    sourceCount: 4,
+  });
+
+  assert.equal(mappable.status.tone, "good");
+  assert.equal(mappable.note, undefined);
+});
