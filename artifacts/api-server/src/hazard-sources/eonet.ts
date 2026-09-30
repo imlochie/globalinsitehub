@@ -16,9 +16,9 @@ import type { HazardRecord, HazardSourceCoverage } from "./types";
  * Documented field semantics used here:
  *   categories[].title  the event category as EONET classifies it
  *   geometry[].date     date/time paired with that geometry (often 00:00Z)
+ *   geometry[].magnitudeValue/magnitudeUnit  magnitude for that observation
  *   geometry[].coordinates  GeoJSON Point or Polygon
  *   closed              null while the event is open; a date once it ended
- *   magnitudeValue/Unit/Description  present only for some categories
  */
 const SOURCE_ID = "nasa-eonet";
 const SOURCE_NAME = "NASA EONET";
@@ -194,9 +194,13 @@ export function parseEonetEvents(
       receivedAt,
       // EONET documents `closed`: null means still open.
       activityStatus: closed ? "closed" : "open",
-      magnitudeValue: finite(event.magnitudeValue),
-      magnitudeUnit: text(event.magnitudeUnit),
-      magnitudeDescription: text(event.magnitudeDescription),
+      // EONET v3 publishes magnitude on the geometry entry; older/other
+      // shapes carry it on the event, so the geometry wins and the event is
+      // only a fallback. The unit is always kept with the value.
+      magnitudeValue: finite(latest.magnitudeValue) ?? finite(event.magnitudeValue),
+      magnitudeUnit: text(latest.magnitudeUnit) ?? text(event.magnitudeUnit),
+      magnitudeDescription:
+        text(latest.magnitudeDescription) ?? text(event.magnitudeDescription),
       depthKm: null,
       reviewStatus: null,
       place: null,

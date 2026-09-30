@@ -363,6 +363,88 @@ export const maritimeLayerDefinition: LayerDefinition = {
   sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_VESSEL_MARKERS },
 };
 
+export const MAX_GLOBE_HAZARD_MARKERS = 200;
+
+/**
+ * Natural hazards.
+ *
+ * Structured hazard observations published by hazard-oriented data sources.
+ * This is deliberately not the same thing as the public-events layer: nothing
+ * here originates in a news headline, and a hazard type is always the category
+ * the source itself assigned.
+ *
+ * Coverage is global in reach but bounded in completeness, and the note says
+ * so: USGS publishes worldwide earthquakes only from magnitude 2.5 up, and
+ * EONET is a curated tracker rather than an exhaustive census. An empty area
+ * therefore means "nothing reported by these two sources", not "nothing
+ * happened".
+ */
+export const naturalHazardLayerDefinition: LayerDefinition = {
+  id: "natural-hazards",
+  label: "Natural hazards",
+  description:
+    "Earthquake and natural-event observations from free, openly licensed hazard sources.",
+  status: "operational",
+  category: "environment",
+  observationKind: "natural-hazard",
+  enabledByDefault: false,
+  capabilities: {
+    map: true,
+    globe: true,
+    inspector: true,
+    search: true,
+    providerFiltering: true,
+  },
+  display: {
+    markerColor: "#fbbf24",
+    markerStrokeColor: "#fef3c7",
+    markerTextColor: "#fcd34d",
+    markerClassName:
+      "size-2 border-amber-100 bg-amber-300 shadow-[0_0_7px_rgba(251,191,36,0.55)]",
+    legendLabel: "Natural hazard",
+    tooltipNote: "source-reported",
+    iconKey: "hazard",
+  },
+  providers: [
+    {
+      id: "usgs",
+      name: "USGS Earthquake Hazards Program",
+      countries: [],
+      attribution: "Credit: U.S. Geological Survey",
+      catalogueUrl: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php",
+      licence: "U.S. public domain (USGS)",
+      coverage: {
+        scope: "global",
+        regions: ["Worldwide"],
+        note: "Magnitude 2.5 and above, past 24 hours. Smaller earthquakes are not included.",
+      },
+    },
+    {
+      id: "nasa-eonet",
+      name: "NASA EONET",
+      countries: [],
+      attribution:
+        "Source: NASA Earth Observatory Natural Event Tracker (EONET)",
+      catalogueUrl: "https://eonet.gsfc.nasa.gov/docs/v3",
+      licence: "NASA ESDIS open data",
+      coverage: {
+        scope: "global",
+        regions: ["Worldwide"],
+        note: "Curated open natural events. NASA states these records are approximations, not official extents.",
+      },
+    },
+  ],
+  coverage: {
+    scope: "global",
+    regions: ["Worldwide"],
+    note:
+      "Global reach, bounded completeness: earthquakes from magnitude 2.5 up in the " +
+      "past 24 hours, plus curated open natural events. An area with no markers means " +
+      "these two sources reported nothing there, not that nothing is happening.",
+  },
+  sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_HAZARD_MARKERS },
+};
+
 function plannedLayer(
   id: KnownLayerId,
   label: string,
@@ -393,7 +475,6 @@ function plannedLayer(
 export const plannedLayerDefinitions: LayerDefinition[] = [
   plannedLayer("aircraft", "Aircraft", "movement", "aircraft"),
   plannedLayer("satellites", "Satellites", "movement", "satellite"),
-  plannedLayer("natural-hazards", "Natural hazards", "environment", "hazard"),
   plannedLayer("weather", "Weather", "environment", "cloud"),
   plannedLayer("infrastructure", "Infrastructure", "infrastructure", "building"),
 ];
@@ -459,6 +540,7 @@ export const layerRegistry: LayerRegistry = createLayerRegistry([
   cameraLayerDefinition,
   publicEventLayerDefinition,
   maritimeLayerDefinition,
+  naturalHazardLayerDefinition,
   ...plannedLayerDefinitions,
 ]);
 

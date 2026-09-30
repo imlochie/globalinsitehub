@@ -10,6 +10,8 @@
 import type {
   CameraProviderStatus,
   CameraRecord,
+  HazardRecord,
+  HazardSourceStatus,
   MaritimeProviderStatus,
   VesselRecord,
 } from "@workspace/api-client-react";
@@ -46,7 +48,11 @@ export type ObservationProvenance = {
    * Provider health, when the provider reports it. Shared UI only reads the
    * fields every provider status has in common (`status`, `message`).
    */
-  providerStatus: CameraProviderStatus | MaritimeProviderStatus | null;
+  providerStatus:
+    | CameraProviderStatus
+    | MaritimeProviderStatus
+    | HazardSourceStatus
+    | null;
 };
 
 /**
@@ -104,10 +110,41 @@ export type MaritimeObservation = BaseObservation<"maritime", "vessel"> & {
 };
 
 /** Union of the layers currently implemented in production. */
+/**
+ * A natural hazard observation.
+ *
+ * Optional fields exist only where a source genuinely publishes them, and each
+ * one keeps its provider meaning: `magnitudeValue` is always paired with the
+ * `magnitudeUnit` naming its scale, because an earthquake magnitude and a
+ * wildfire acreage are not points on one severity ladder. No severity index is
+ * synthesised, and the untouched provider record travels with the observation.
+ */
+export type NaturalHazardObservation = BaseObservation<
+  "natural-hazards",
+  "natural-hazard"
+> & {
+  /** Category as classified by the source. Never inferred from the title. */
+  hazardType: string;
+  /** When the Signalwatch API server received this record. */
+  receivedAt: string;
+  magnitudeValue: number | null;
+  magnitudeUnit: string | null;
+  magnitudeDescription: string | null;
+  depthKm: number | null;
+  /** Source-declared activity state, where the source documents one. */
+  activityStatus: "open" | "closed" | null;
+  /** Provider review state, e.g. USGS "automatic" / "reviewed". */
+  reviewStatus: string | null;
+  place: string | null;
+  licence: string;
+  record: HazardRecord;
+};
+
 export type GlobalObservation =
   | CameraObservation
   | PublicEventObservation
-  | MaritimeObservation;
+  | MaritimeObservation
+  | NaturalHazardObservation;
 
 /** Adapter turning one provider's records into one layer's observations. */
 export type LayerProviderAdapter<
@@ -545,6 +582,81 @@ export function createMaritimeLayerProviderAdapter(
   };
 }
 
+function hazardDetail(record: HazardRecord): string | null {
+  const parts = [
+    record.place,
+    record.magnitudeValue !== null && record.magnitudeValue !== undefined
+      ? `${record.magnitudeValue}${record.magnitudeUnit ? ` ${record.magnitudeUnit}` : ""}`
+      : null,
+    record.depthKm !== null && record.depthKm !== undefined
+      ? `depth ${record.depthKm} km`
+      : null,
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" \u00b7 ") : (record.description ?? null);
+}
+
+/**
+ * Normalizes one hazard record.
+ *
+ * A record is dropped only when it cannot be placed or timed honestly:
+ * unusable coordinates, or an unusable observation time. Nothing is dropped
+ * for being "not severe enough" — that judgement belongs to the source, not to
+ * Signalwatch.
+ */
+export function normalizeHazardRecord(
+  record: HazardRecord,
+  sources: readonly HazardSourceStatus[],
+): NaturalHazardObservation | null {
+  if (!isValidCoordinates(record.latitude, record.longitude)) return null;
+  const observedAt = asIsoString(record.occurredAt);
+  if (observedAt === null) return null;
+  const receivedAt = asIsoString(record.receivedAt);
+  if (receivedAt === null) return null;
+
+  const sourceStatus =
+    sources.find((source) => source.id === record.source) ?? null;
+
+  return {
+    kind: "natural-hazard",
+    layerId: "natural-hazards",
+    id: record.id,
+    key: observationKey("natural-hazards", record.id),
+    latitude: record.latitude,
+    longitude: record.longitude,
+    label: record.title,
+    // The source's observation time, never the time Signalwatch received it.
+    observedAt,
+    detail: hazardDetail(record),
+    providerId: record.source,
+    providerName: sourceStatus?.name ?? record.source,
+    sourceUrl: record.sourceUrl,
+    attribution: record.attribution,
+    catalogueUrl: sourceStatus?.catalogueUrl ?? null,
+    providerStatus: sourceStatus,
+    hazardType: record.hazardType,
+    receivedAt,
+    magnitudeValue: record.magnitudeValue ?? null,
+    magnitudeUnit: record.magnitudeUnit ?? null,
+    magnitudeDescription: record.magnitudeDescription ?? null,
+    depthKm: record.depthKm ?? null,
+    activityStatus: record.activityStatus ?? null,
+    reviewStatus: record.reviewStatus ?? null,
+    place: record.place ?? null,
+    licence: record.licence,
+    record,
+  };
+}
+
+export function createNaturalHazardLayerProviderAdapter(
+  sources: readonly HazardSourceStatus[],
+): LayerProviderAdapter<HazardRecord, NaturalHazardObservation> {
+  return {
+    layerId: "natural-hazards",
+    providerId: (record) => record.source,
+    normalize: (record) => normalizeHazardRecord(record, sources),
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Registry helpers used by shared renderers                                  */
 /* -------------------------------------------------------------------------- */
@@ -584,6 +696,15 @@ export function isMaritimeObservation(
   observation: BaseObservation,
 ): observation is MaritimeObservation {
   return observation.layerId === "maritime" && observation.kind === "vessel";
+}
+
+export function isNaturalHazardObservation(
+  observation: BaseObservation,
+): observation is NaturalHazardObservation {
+  return (
+    observation.layerId === "natural-hazards" &&
+    observation.kind === "natural-hazard"
+  );
 }
 
 export function isPublicEventObservation(

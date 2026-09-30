@@ -19,6 +19,10 @@ import {
   type MaritimeLayerSourceResult,
 } from "@/hooks/layer-sources/maritime-layer-source";
 import {
+  useNaturalHazardLayerSource,
+  type NaturalHazardLayerSourceResult,
+} from "@/hooks/layer-sources/natural-hazard-layer-source";
+import {
   usePublicEventLayerSource,
   type PublicEventLayerSourceResult,
 } from "@/hooks/layer-sources/public-event-layer-source";
@@ -28,7 +32,6 @@ import type {
 } from "@/hooks/layer-sources/types";
 import {
   findObservation,
-  normalizePublicEvent,
   selectRenderableObservations,
   type GlobalObservation,
 } from "@/lib/global-layers";
@@ -73,9 +76,20 @@ export function useGlobalLayerData() {
     state: layerState,
   });
 
+  const naturalHazardSource: NaturalHazardLayerSourceResult =
+    useNaturalHazardLayerSource({
+      enabled: layerState.isLayerEnabled("natural-hazards"),
+      state: layerState,
+    });
+
   const sources = useMemo<LayerSourceResult<GlobalObservation>[]>(
-    () => [cameraSource, publicEventSource, maritimeSource],
-    [cameraSource, publicEventSource, maritimeSource],
+    () => [
+      cameraSource,
+      publicEventSource,
+      maritimeSource,
+      naturalHazardSource,
+    ],
+    [cameraSource, publicEventSource, maritimeSource, naturalHazardSource],
   );
 
   const { observations, statusByLayer } = useMemo(
@@ -114,11 +128,6 @@ export function useGlobalLayerData() {
 
   const briefing = publicEventSource.briefing;
   const allEvents = briefing?.events ?? [];
-  const locatedEventCount = useMemo(
-    () =>
-      allEvents.filter((event) => normalizePublicEvent(event) !== null).length,
-    [allEvents],
-  );
 
   return {
     ...layerState,
@@ -132,6 +141,7 @@ export function useGlobalLayerData() {
     // Layer-specific surfaces (lists, counters) consume their own source.
     cameraCatalogue: cameraSource.catalogue,
     vesselFeed: maritimeSource.feed,
+    hazardFeed: naturalHazardSource.feed,
     briefing,
     briefingLoading: publicEventSource.status.isLoading,
     briefingFetching: publicEventSource.status.isFetching,
@@ -139,7 +149,7 @@ export function useGlobalLayerData() {
     refetchBriefing: publicEventSource.refetch,
     events: allEvents,
     headlines: briefing?.headlines ?? [],
-    locatedEventCount,
+    locatedEventCount: publicEventSource.locatedEventCount,
     eventRecordCount: allEvents.length,
     headlineCount: briefing?.headlines.length ?? 0,
     sourcesOnline: briefing?.sourcesOnline ?? 0,

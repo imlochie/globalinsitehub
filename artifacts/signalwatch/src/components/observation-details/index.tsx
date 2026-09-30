@@ -10,11 +10,13 @@ import type { BaseObservation } from '@/lib/global-layers';
 import {
   isCameraObservation,
   isMaritimeObservation,
+  isNaturalHazardObservation,
   isPublicEventObservation,
 } from '@/lib/global-layers';
 import { CameraObservationDetails } from './camera-observation-details';
 import { PublicEventObservationDetails } from './public-event-observation-details';
 import { MaritimeObservationDetails } from './maritime-observation-details';
+import { NaturalHazardObservationDetails } from './natural-hazard-observation-details';
 import { GenericObservationDetails } from './generic-observation-details';
 
 export function ObservationDetails({
@@ -27,6 +29,9 @@ export function ObservationDetails({
   }
   if (isMaritimeObservation(observation)) {
     return <MaritimeObservationDetails observation={observation} />;
+  }
+  if (isNaturalHazardObservation(observation)) {
+    return <NaturalHazardObservationDetails observation={observation} />;
   }
   if (isPublicEventObservation(observation)) {
     return <PublicEventObservationDetails observation={observation} />;

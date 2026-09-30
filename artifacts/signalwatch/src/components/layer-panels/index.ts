@@ -8,11 +8,13 @@
 import type { useGlobalLayerData } from '@/hooks/use-global-layer-data';
 import { cameraLayerPanel } from './camera-layer-panel';
 import { maritimeLayerPanel } from './maritime-layer-panel';
+import { naturalHazardLayerPanel } from './natural-hazard-layer-panel';
 import { publicEventLayerPanel } from './public-event-layer-panel';
 import type { LayerPanelModel } from './types';
 
 export { cameraLayerPanel } from './camera-layer-panel';
 export { maritimeLayerPanel } from './maritime-layer-panel';
+export { naturalHazardLayerPanel } from './natural-hazard-layer-panel';
 export { publicEventLayerPanel } from './public-event-layer-panel';
 export type { LayerPanelModel, LayerPanelMetric, StatusTone } from './types';
 
@@ -84,6 +86,29 @@ export function buildLayerPanels(layerData: LayerData): LayerPanelModel[] {
         hasError: layerData.vesselFeed.hasError,
         isUnavailable: layerData.vesselFeed.isUnavailable,
         isTruncated: layerData.vesselFeed.isTruncated,
+      }),
+    );
+  }
+
+  if (registry.has('natural-hazards')) {
+    panels.push(
+      naturalHazardLayerPanel({
+        definition: registry.require('natural-hazards'),
+        enabled: layerData.isLayerEnabled('natural-hazards'),
+        onEnabledChange: (enabled) =>
+          layerData.setLayerEnabled('natural-hazards', enabled),
+        source: layerData.naturalHazardFilters.source,
+        onSourceChange: layerData.setNaturalHazardSource,
+        search: layerData.naturalHazardFilters.search,
+        onSearchChange: layerData.setNaturalHazardSearch,
+        sources: layerData.hazardFeed.sources,
+        matchedCount: layerData.hazardFeed.matchedCount,
+        returnedCount: layerData.hazardFeed.returnedCount,
+        isLoading: layerData.hazardFeed.isLoading,
+        isFetching: layerData.hazardFeed.isFetching,
+        hasError: layerData.hazardFeed.hasError,
+        isUnavailable: layerData.hazardFeed.isUnavailable,
+        isTruncated: layerData.hazardFeed.isTruncated,
       }),
     );
   }

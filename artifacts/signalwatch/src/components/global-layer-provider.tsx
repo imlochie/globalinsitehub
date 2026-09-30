@@ -44,6 +44,13 @@ export type MaritimeLayerFilters = {
   debouncedSearch: string;
 };
 
+export type NaturalHazardLayerFilters = {
+  /** Hazard source id, or "all". Each source has its own coverage. */
+  source: string;
+  search: string;
+  debouncedSearch: string;
+};
+
 export type GlobalLayerContextValue = {
   registry: LayerRegistry;
   enabledLayers: LayerEnablement;
@@ -56,6 +63,9 @@ export type GlobalLayerContextValue = {
   maritimeFilters: MaritimeLayerFilters;
   setMaritimeProvider: (provider: string) => void;
   setMaritimeSearch: (search: string) => void;
+  naturalHazardFilters: NaturalHazardLayerFilters;
+  setNaturalHazardSource: (source: string) => void;
+  setNaturalHazardSearch: (search: string) => void;
   selectedObservation: ObservationIdentity | null;
   selectObservation: (observation: ObservationIdentity) => void;
   clearSelectedObservation: () => void;
@@ -82,6 +92,11 @@ export function GlobalLayerProvider({
   const [maritimeProvider, setMaritimeProviderState] = useState<string>("all");
   const [maritimeSearch, setMaritimeSearch] = useState("");
   const [debouncedMaritimeSearch, setDebouncedMaritimeSearch] = useState("");
+  const [naturalHazardSource, setNaturalHazardSourceState] =
+    useState<string>("all");
+  const [naturalHazardSearch, setNaturalHazardSearch] = useState("");
+  const [debouncedNaturalHazardSearch, setDebouncedNaturalHazardSearch] =
+    useState("");
   const [selectedObservation, setSelectedObservation] =
     useState<ObservationIdentity | null>(null);
 
@@ -100,6 +115,14 @@ export function GlobalLayerProvider({
     );
     return () => window.clearTimeout(timer);
   }, [maritimeSearch]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setDebouncedNaturalHazardSearch(naturalHazardSearch),
+      250,
+    );
+    return () => window.clearTimeout(timer);
+  }, [naturalHazardSearch]);
 
   const setLayerEnabled = useCallback(
     (layerId: LayerId, enabled: boolean) => {
@@ -164,6 +187,22 @@ export function GlobalLayerProvider({
     [cameraCountry, cameraProvider, cameraSearch, debouncedCameraSearch],
   );
 
+  const setNaturalHazardSource = useCallback((source: string) => {
+    setNaturalHazardSourceState(source);
+    setSelectedObservation((selected) =>
+      clearLayerSelection(selected, "natural-hazards"),
+    );
+  }, []);
+
+  const naturalHazardFilters = useMemo<NaturalHazardLayerFilters>(
+    () => ({
+      source: naturalHazardSource,
+      search: naturalHazardSearch,
+      debouncedSearch: debouncedNaturalHazardSearch,
+    }),
+    [naturalHazardSource, naturalHazardSearch, debouncedNaturalHazardSearch],
+  );
+
   const maritimeFilters = useMemo<MaritimeLayerFilters>(
     () => ({
       provider: maritimeProvider,
@@ -186,6 +225,9 @@ export function GlobalLayerProvider({
       maritimeFilters,
       setMaritimeProvider,
       setMaritimeSearch,
+      naturalHazardFilters,
+      setNaturalHazardSource,
+      setNaturalHazardSearch,
       selectedObservation,
       selectObservation,
       clearSelectedObservation,
@@ -200,6 +242,8 @@ export function GlobalLayerProvider({
       setCameraProvider,
       maritimeFilters,
       setMaritimeProvider,
+      naturalHazardFilters,
+      setNaturalHazardSource,
       selectedObservation,
       selectObservation,
       clearSelectedObservation,
