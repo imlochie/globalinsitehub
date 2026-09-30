@@ -127,6 +127,70 @@ test("layer coverage derived from providers is never upgraded to global", () => 
   assert.match(derived.note, /Signalwatch has no source/);
 });
 
+test("operational describes sources, not runtime provider health", () => {
+  // One provider healthy, one unconfigured: the layer is still operational and
+  // still renders, because a source capable of supplying it exists.
+  const panel = maritimeLayerPanel({
+    enabled: true,
+    onEnabledChange: () => {},
+    provider: "all",
+    onProviderChange: () => {},
+    search: "",
+    onSearchChange: () => {},
+    providers: [
+      providerStatus("digitraffic", "available"),
+      providerStatus("barentswatch", "unavailable"),
+    ],
+    matchedCount: 5,
+    returnedCount: 5,
+    isLoading: false,
+    isFetching: false,
+    hasError: false,
+    isUnavailable: false,
+    isTruncated: false,
+  });
+  assert.equal(panel.definition.status, "operational");
+  assert.equal(panel.status.tone, "good");
+
+  const markup = renderToStaticMarkup(
+    <Router ssrPath="/">
+      <GlobalLayerControl layers={[panel]} />
+    </Router>,
+  );
+  // The layer is present and the unconfigured provider is named, not hidden.
+  assert.match(markup, /digitraffic feed · available/);
+  assert.match(markup, /barentswatch feed · unavailable/);
+  assert.match(markup, /Regional:/);
+});
+
+test("layer status never changes with provider health", () => {
+  // Registry status is static data: no runtime value can flip it.
+  const before = layerRegistry.require("maritime").status;
+  const allDown = maritimeLayerPanel({
+    enabled: true,
+    onEnabledChange: () => {},
+    provider: "all",
+    onProviderChange: () => {},
+    search: "",
+    onSearchChange: () => {},
+    providers: [
+      providerStatus("digitraffic", "unavailable"),
+      providerStatus("barentswatch", "unavailable"),
+    ],
+    matchedCount: 0,
+    returnedCount: 0,
+    isLoading: false,
+    isFetching: false,
+    hasError: false,
+    isUnavailable: true,
+    isTruncated: false,
+  });
+  assert.equal(allDown.definition.status, before);
+  assert.equal(before, "operational");
+  // Health is reported separately, and honestly.
+  assert.equal(allDown.status.tone, "bad");
+});
+
 /* -------------------------------------------------------------------------- */
 /* Normalization                                                              */
 /* -------------------------------------------------------------------------- */

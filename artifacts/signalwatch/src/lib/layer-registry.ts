@@ -29,6 +29,21 @@ export type KnownLayerId =
 /** Layer ids are open so tests (and future work) can register extra layers. */
 export type LayerId = KnownLayerId | (string & {});
 
+/**
+ * Layer status is a statement about *sources*, not about runtime health.
+ *
+ *   operational — Signalwatch has at least one legitimate, free source capable
+ *                 of supplying this layer in the current deployment.
+ *   planned     — no such source is confirmed, so no feed is implemented or
+ *                 probed.
+ *
+ * `operational` deliberately does NOT mean "every registered provider is
+ * configured and healthy". A layer with two providers stays operational when
+ * one is down or simply unconfigured: the other still supplies its region, and
+ * the failing provider is reported as `unavailable` next to the layer rather
+ * than by hiding the layer. Runtime health lives in `LayerFetchStatus` and in
+ * the per-provider status returned by the API — never in this field.
+ */
 export type LayerStatus = "operational" | "planned";
 
 export type LayerCategory =
