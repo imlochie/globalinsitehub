@@ -19,7 +19,7 @@ export default function SourcesPage() {
   const notIntegrated = briefing?.sources.filter((source: BriefingSource) => source.status === 'not-integrated').length ?? 0;
 
   return <div className="signal-rise mx-auto max-w-[1500px] px-4 pb-12 sm:px-6 lg:px-9">
-    <section className="flex flex-col gap-5 border-b border-border py-7 sm:flex-row sm:items-end sm:justify-between"><div><div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">provenance ledger</div><h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">Sources & attribution</h1><p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Know which public sources answered, which did not, and where each signal came from.</p></div><div className="flex items-center gap-3">{isFetching && !isLoading && <InlineUpdating />}<Link href="/" data-testid="link-source-back-workspace" className="text-xs font-semibold text-muted-foreground hover:text-foreground">Workspace <ExternalLink className="ml-1 inline size-3.5" /></Link></div></section>
+    <section className="flex flex-col gap-5 border-b border-border py-7 sm:flex-row sm:items-end sm:justify-between"><div><div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">provenance ledger</div><h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">Sources & attribution</h1><p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">Know which public sources answered, which did not, and where each signal came from.</p></div><div className="flex items-center gap-3">{isFetching && !isLoading && <InlineUpdating />}<Link href="/sectors?view=workspace#sector-operations" data-testid="link-source-back-workspace" className="text-xs font-semibold text-muted-foreground hover:text-foreground">Workspace <ExternalLink className="ml-1 inline size-3.5" /></Link></div></section>
     {isLoading && <div className="py-8"><BriefingLoading /></div>}
     {isError && !isLoading && <div className="py-8"><BriefingError onRetry={() => void refetch()} /></div>}
     {briefing && <section className="py-7">
@@ -39,6 +39,6 @@ export default function SourcesPage() {
 }
 
 function SourceMetric({ icon, label, value, tone, text = false }: { icon: ReactNode; label: string; value: number | string; tone: 'green' | 'red' | 'amber' | 'neutral'; text?: boolean }) {
-  const colors = { green: 'text-emerald-700', red: 'text-destructive', amber: 'text-amber-700', neutral: 'text-foreground' };
+  const colors = { green: 'text-emerald-700 dark:text-emerald-300', red: 'text-destructive', amber: 'text-amber-700 dark:text-amber-300', neutral: 'text-foreground' };
   return <div className="bg-card px-4 py-4 sm:px-5"><div className={`flex items-center gap-2 text-xs font-semibold ${colors[tone]}`}>{icon}{label}</div><div className="mt-2 text-xl font-semibold tracking-tight">{text ? value : Number(value).toLocaleString()}</div></div>;
 }

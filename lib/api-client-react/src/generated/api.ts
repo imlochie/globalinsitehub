@@ -17,8 +17,10 @@ import type {
 
 import type {
   GetMonitoringBriefingParams,
+  GetMonitoringCamerasParams,
   HealthStatus,
-  MonitoringBriefing
+  MonitoringBriefing,
+  MonitoringCamerasResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -199,6 +201,91 @@ export function useGetMonitoringBriefing<TData = Awaited<ReturnType<typeof getMo
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMonitoringBriefingQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMonitoringCamerasUrl = (params?: GetMonitoringCamerasParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/monitoring/cameras?${stringifiedParams}` : `/api/monitoring/cameras`
+}
+
+/**
+ * Returns camera metadata from registered providers. Provider availability describes catalogue access only; individual camera feeds are not probed or proxied.
+ * @summary Get normalized public camera catalogue metadata
+ */
+export const getMonitoringCameras = async (params?: GetMonitoringCamerasParams, options?: Parameters<typeof customFetch>[1]): Promise<MonitoringCamerasResponse> => {
+
+  return customFetch<MonitoringCamerasResponse>(getGetMonitoringCamerasUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMonitoringCamerasQueryKey = (params?: GetMonitoringCamerasParams,) => {
+    return [
+    `/api/monitoring/cameras`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMonitoringCamerasQueryOptions = <TData = Awaited<ReturnType<typeof getMonitoringCameras>>, TError = ErrorType<unknown>>(params?: GetMonitoringCamerasParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringCameras>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMonitoringCamerasQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMonitoringCameras>>> = ({ signal }) => getMonitoringCameras(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMonitoringCameras>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMonitoringCamerasQueryResult = NonNullable<Awaited<ReturnType<typeof getMonitoringCameras>>>
+export type GetMonitoringCamerasQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get normalized public camera catalogue metadata
+ */
+
+export function useGetMonitoringCameras<TData = Awaited<ReturnType<typeof getMonitoringCameras>>, TError = ErrorType<unknown>>(
+ params?: GetMonitoringCamerasParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringCameras>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMonitoringCamerasQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

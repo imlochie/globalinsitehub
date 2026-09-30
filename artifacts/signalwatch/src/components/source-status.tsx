@@ -4,9 +4,9 @@ import { formatAbsoluteTime, statusLabel } from '@/lib/monitoring';
 
 export function SourceStatus({ source, detailed = false }: { source: BriefingSource; detailed?: boolean }) {
   const statusClass = source.status === 'online'
-    ? 'border-emerald-600/20 bg-emerald-600/5 text-emerald-700'
+    ? 'border-emerald-600/20 bg-emerald-600/5 text-emerald-700 dark:text-emerald-300'
     : source.status === 'provider-needed'
-      ? 'border-amber-600/25 bg-amber-500/10 text-amber-800'
+      ? 'border-amber-600/25 bg-amber-500/10 text-amber-800 dark:text-amber-300'
       : source.status === 'unavailable'
         ? 'border-destructive/20 bg-destructive/5 text-destructive'
         : 'border-border bg-muted/60 text-muted-foreground';

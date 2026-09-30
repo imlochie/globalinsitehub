@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
+import { VitePWA } from 'vite-plugin-pwa';
 
 const rawPort = process.env.PORT;
 
@@ -33,6 +34,70 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: [
+        'favicon.svg',
+        'pwa-192.png',
+        'pwa-512.png',
+        'apple-touch-icon.png',
+      ],
+      manifest: {
+        id: '/',
+        name: 'Signalwatch',
+        short_name: 'Signalwatch',
+        description:
+          'A map-first workspace for monitoring public information signals.',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        background_color: '#070a10',
+        theme_color: '#070a10',
+        orientation: 'any',
+        categories: ['news', 'utilities'],
+        prefer_related_applications: false,
+        icons: [
+          {
+            src: '/pwa-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: '/pwa-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
+        ],
+        shortcuts: [
+          {
+            name: 'Live event map',
+            short_name: 'Map',
+            description: 'Open the Signalwatch event map.',
+            url: '/map',
+            icons: [
+              {
+                src: '/pwa-192.png',
+                sizes: '192x192',
+                type: 'image/png',
+              },
+            ],
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: [
+          '**/*.{js,css,html,svg,png,ico,webmanifest,woff2,woff,ttf}',
+        ],
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            handler: 'NetworkOnly',
+          },
+        ],
+      },
+    }),
     ...(process.env.NODE_ENV !== 'production' &&
     process.env.REPL_ID !== undefined
       ? [

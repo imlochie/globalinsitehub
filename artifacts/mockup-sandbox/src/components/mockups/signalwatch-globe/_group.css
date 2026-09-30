@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+  --border: 38 15% 83%;
+  --app-font-sans: 'Space Grotesk', sans-serif;
+  --app-font-serif: Georgia, serif;
+  --app-font-mono: 'DM Mono', monospace;
+}
+
+.dark {
+  --border: 215 20% 25%;
+}
+
+@theme inline {
+  --font-sans: var(--app-font-sans);
+  --font-serif: var(--app-font-serif);
+  --font-mono: var(--app-font-mono);
+}
+
+@layer utilities {
+  .signal-grid {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.32) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.32) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}

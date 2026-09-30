@@ -1,6 +1,7 @@
-import { Globe, Radio, Settings2, Waypoints } from "lucide-react";
+import { Globe, Radio, Settings2, Waypoints, WifiOff } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useEffect, useState, type ReactNode } from "react";
+import { PwaInstallControl } from "@/components/pwa-install-control";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,9 @@ export function SignalShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(readReduceMotionPreference);
+  const [isOnline, setIsOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine,
+  );
   const isIntelligenceArea =
     location === "/" || location === "/map" || location.startsWith("/sectors");
   const isSectorPreview = isIntelligenceArea;
@@ -45,6 +49,16 @@ export function SignalShell({ children }: { children: ReactNode }) {
     }
   }, [reduceMotion]);
 
+  useEffect(() => {
+    const updateConnectionStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener("online", updateConnectionStatus);
+    window.addEventListener("offline", updateConnectionStatus);
+    return () => {
+      window.removeEventListener("online", updateConnectionStatus);
+      window.removeEventListener("offline", updateConnectionStatus);
+    };
+  }, []);
+
   return (
     <div
       className={`min-h-[100dvh] ${
@@ -54,7 +68,7 @@ export function SignalShell({ children }: { children: ReactNode }) {
       }`}
     >
       <header
-        className={`sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b px-3 backdrop-blur-md sm:px-5 lg:px-8 ${
+        className={`sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b px-3 backdrop-blur-md sm:gap-3 sm:px-5 lg:px-8 ${
           isSectorPreview
             ? "border-white/10 bg-[#070a10]/90 text-slate-100"
             : "border-border bg-background/90"
@@ -103,7 +117,7 @@ export function SignalShell({ children }: { children: ReactNode }) {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 data-testid={`link-nav-${label.toLowerCase().replaceAll(" ", "-")}`}
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-[10px] font-medium transition-colors sm:gap-2 sm:px-3 sm:text-xs ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-[10px] font-medium transition-colors sm:gap-2 sm:px-3 sm:text-xs ${
                   active
                     ? isSectorPreview
                       ? "bg-cyan-200/15 text-cyan-100 shadow-sm"
@@ -136,6 +150,7 @@ export function SignalShell({ children }: { children: ReactNode }) {
               ? "sample sectors · sourced views"
               : "polling public feeds"}
           </span>
+          <PwaInstallControl isSectorPreview={isSectorPreview} />
           <button
             type="button"
             data-testid="button-settings"
@@ -151,6 +166,25 @@ export function SignalShell({ children }: { children: ReactNode }) {
           </button>
         </div>
       </header>
+      {!isOnline && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`flex items-start gap-2 border-b px-4 py-3 text-xs leading-5 sm:px-6 ${
+            isSectorPreview
+              ? "border-amber-200/15 bg-amber-300/10 text-amber-100"
+              : "border-amber-300/30 bg-amber-50 text-amber-950"
+          }`}
+        >
+          <WifiOff className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <p>
+            <strong>Offline.</strong> The app shell is available, but live
+            briefings and camera feeds are not refreshing. Any records still
+            visible were loaded earlier in this session; provider responses are
+            not cached for offline use.
+          </p>
+        </div>
+      )}
       <main className="min-w-0">{children}</main>
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent

@@ -72,6 +72,142 @@ export interface MonitoringBriefing {
   sources: MonitoringSource[];
 }
 
+/**
+ * Health of the provider catalogue request, not of its individual camera feeds.
+ */
+export type CameraProviderStatusStatus = typeof CameraProviderStatusStatus[keyof typeof CameraProviderStatusStatus];
+
+
+export const CameraProviderStatusStatus = {
+  available: 'available',
+  stale: 'stale',
+  unavailable: 'unavailable',
+} as const;
+
+export type CameraProviderStatusFeedReachability = typeof CameraProviderStatusFeedReachability[keyof typeof CameraProviderStatusFeedReachability];
+
+
+export const CameraProviderStatusFeedReachability = {
+  'not-probed': 'not-probed',
+} as const;
+
+export interface CameraProviderStatus {
+  id: string;
+  name: string;
+  attribution: string;
+  catalogueUrl: string;
+  /** Health of the provider catalogue request, not of its individual camera feeds. */
+  status: CameraProviderStatusStatus;
+  feedReachability: CameraProviderStatusFeedReachability;
+  /** @minimum 0 */
+  cameraCount: number;
+  checkedAt: string;
+  /** @nullable */
+  lastSuccessfulFetchAt: string | null;
+  message: string;
+}
+
+export type CameraRecordStreamKind = typeof CameraRecordStreamKind[keyof typeof CameraRecordStreamKind];
+
+
+export const CameraRecordStreamKind = {
+  image: 'image',
+  video: 'video',
+  snapshot: 'snapshot',
+  unknown: 'unknown',
+} as const;
+
+export type CameraRecordFeedStatus = typeof CameraRecordFeedStatus[keyof typeof CameraRecordFeedStatus];
+
+
+export const CameraRecordFeedStatus = {
+  'not-probed': 'not-probed',
+} as const;
+
+/**
+ * Whether the entry is listed in a public catalogue; this does not assert stream reachability or reuse rights.
+ */
+export type CameraRecordPublicAccess = typeof CameraRecordPublicAccess[keyof typeof CameraRecordPublicAccess];
+
+
+export const CameraRecordPublicAccess = {
+  'catalogue-listed': 'catalogue-listed',
+  unknown: 'unknown',
+} as const;
+
+export interface CameraRecord {
+  /** Stable provider-scoped identifier derived from the canonical feed URL. */
+  id: string;
+  provider: string;
+  displayName: string;
+  /** @nullable */
+  description: string | null;
+  country: string;
+  /**
+     * Optional ISO 3166-1 alpha-2 country code.
+     * @pattern ^[A-Z]{2}$
+     */
+  countryCode?: string;
+  /** @nullable */
+  region: string | null;
+  /** @nullable */
+  subregion: string | null;
+  /**
+     * Optional provider-specific district name.
+     * @nullable
+     */
+  district?: string | null;
+  /**
+     * Optional locality within the region.
+     * @nullable
+     */
+  locality?: string | null;
+  /**
+     * Postal code stored as text to preserve leading zeroes.
+     * @nullable
+     */
+  postcode?: string | null;
+  /**
+     * @minimum -90
+     * @maximum 90
+     */
+  latitude: number;
+  /**
+     * @minimum -180
+     * @maximum 180
+     */
+  longitude: number;
+  /** @nullable */
+  direction: string | null;
+  /** Original provider-listed feed URL; Signalwatch does not proxy it. */
+  sourceUrl: string;
+  /** @nullable */
+  encoding: string | null;
+  /** @nullable */
+  format: string | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  imageUpdateRateMs: number | null;
+  streamKind: CameraRecordStreamKind;
+  feedStatus: CameraRecordFeedStatus;
+  /** Whether the entry is listed in a public catalogue; this does not assert stream reachability or reuse rights. */
+  publicAccess: CameraRecordPublicAccess;
+  attribution: string;
+  catalogueUrl: string;
+}
+
+export interface MonitoringCamerasResponse {
+  generatedAt: string;
+  /** Number of cameras matching the optional filter before the result limit is applied. */
+  matchedCount: number;
+  returnedCount: number;
+  limit: number;
+  providers: CameraProviderStatus[];
+  cameras: CameraRecord[];
+}
+
 export type GetMonitoringBriefingParams = {
 /**
  * Optional text filter applied to headlines and events.
@@ -81,6 +217,30 @@ q?: string;
  * Maximum number of headlines and events to return.
  * @minimum 1
  * @maximum 60
+ */
+limit?: number;
+};
+
+export type GetMonitoringCamerasParams = {
+/**
+ * Optional case-insensitive filter across camera names, descriptions, locations, postcodes, formats, and source URLs.
+ * @maxLength 120
+ */
+q?: string;
+/**
+ * Optional country filter. Accepts a country name or ISO 3166-1 alpha-2 code such as Australia or AU.
+ * @maxLength 80
+ */
+country?: string;
+/**
+ * Optional exact match on the stable provider ID, such as qld-tmr.
+ * @maxLength 64
+ */
+provider?: string;
+/**
+ * Maximum number of cameras to return.
+ * @minimum 1
+ * @maximum 250
  */
 limit?: number;
 };
