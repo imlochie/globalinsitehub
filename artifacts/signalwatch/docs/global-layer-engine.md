@@ -116,6 +116,37 @@ Data acquisition follows enablement: a disabled layer does not start its queries
 Globe/map rendering, sampling, legends, selection, enablement and the inspector
 shell require no changes.
 
+## What "operational" means
+
+> A layer is `operational` when Signalwatch has at least one legitimate free
+> source capable of supplying it in the current deployment.
+
+It explicitly does **not** mean "all registered providers are configured and
+healthy". These are different axes and the code keeps them apart:
+
+| Axis | Lives in | Changes at runtime? |
+| --- | --- | --- |
+| Is there a usable source at all? | `LayerDefinition.status` (registry) | No — static data |
+| Is the layer fetching / erroring right now? | `LayerFetchStatus` | Yes |
+| Is one particular feed up? | per-provider `status` from the API | Yes |
+| How much of the world does it see? | `coverage` (provider + derived layer) | No |
+
+So this is a coherent, expected state rather than a bug:
+
+```text
+MARITIME
+Operational
+Regional
+
+Digitraffic       available
+BarentsWatch      unavailable   (free credentials not configured here)
+```
+
+Hiding the layer because one optional regional source is unconfigured would be
+worse than showing it with the gap named. `tests/maritime-layer.test.tsx` pins
+this: registry status never moves with provider health, and the control still
+renders both providers when one is down.
+
 ## Current layer status
 
 Operational:
@@ -162,6 +193,31 @@ Boundaries:
 
 **Cost:** both feeds are free of subscriptions, per-request charges and usage
 billing. That is a constraint, not an accident — see `replit.md`.
+
+### Live verification (run where there is egress)
+
+The sandbox this was built in has no outbound network access, so every provider
+reports `unavailable` there. The remaining uncertainty is deployment, not
+architecture. In Replit (or any deployment with egress):
+
+```bash
+pnpm --filter @workspace/api-server run verify:maritime
+# or against a remote deployment:
+API_BASE_URL=https://your-deployment/api node artifacts/api-server/scripts/verify-maritime-live.mjs
+```
+
+It walks provider feed → normalization → `VesselRecord` → coverage/health and
+checks, on live data, that: coverage is still regional and still says absence is
+not evidence of absence; every provider declares regions, attribution and
+licence; identities are `<provider>:<mmsi>`; coordinates are usable; AIS
+sentinels (course 360, speed 102.3/102.4, heading 511, IMO 0) did not leak; the
+provider position time is not the receipt time; a per-provider request returns
+only that provider; and a provider being down did not empty the healthy one.
+
+Exit 0 means the contract held — including when a provider is legitimately
+unavailable, which is reported as a note. Exit 1 means a real contract
+violation. A network error is reported as a deployment fact, not a provider
+failure.
 
 ### Adding another free regional AIS source
 

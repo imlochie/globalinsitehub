@@ -47,6 +47,13 @@ and a shared record inspector with provenance intact.
   attribution) plus a layer-specific specialisation; provider provenance is never
   flattened away to simplify types.
 - Data acquisition follows layer enablement — a disabled layer starts no queries.
+- **`status: "operational"` is a statement about sources, not about runtime health.**
+  It means Signalwatch has at least one legitimate free source capable of supplying
+  the layer in the current deployment. It does *not* mean every registered provider
+  is configured and healthy. A layer with two providers stays operational when one is
+  down or unconfigured — the other still serves its region, and the failing provider
+  is named as `unavailable` beside the layer instead of the layer being hidden.
+  Runtime health lives in `LayerFetchStatus` and in per-provider API status.
 - Layer coverage is part of the registry: each provider declares
   `coverage: { scope: "global" | "regional" | "local", regions, note }` and
   `layerCoverage()` derives the layer's coverage from its providers. Deriving never
