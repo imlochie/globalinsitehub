@@ -54,6 +54,17 @@ Any *one* of the following, evidenced in writing and recorded in this file:
 Until one of those exists, aircraft remain a **planned** layer with no source, visually and semantically
 distinct from operational layers.
 
+**Prepared, unsent follow-ups (added after the gate was recorded):**
+
+- `research/adsblol-operator-inquiry.md` — a drafted, **unsent** technical inquiry to the ADSB.lol operator
+  covering all nine open permissions and semantics questions, with a map from each answer to the blocker it
+  clears. ADSB.lol is the first door because its own documentation invites production users to make contact.
+- `research/flightaware-cost-envelope.md` — the AeroAPI query and cost envelope worked out from published
+  pricing. Conclusion: the rights story is the cleanest of any candidate, but per-result-set billing (one set
+  = 15 records, $0.050 for a search) makes a continuously-polled live map structurally unaffordable; $100/month
+  buys roughly one poll every 21 minutes for a single near-empty viewport. It is a fallback and a candidate for
+  user-initiated enrichment, not a base layer.
+
 ---
 
 ## 2. Provider matrix
