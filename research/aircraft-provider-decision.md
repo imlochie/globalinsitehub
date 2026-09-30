@@ -64,6 +64,14 @@ distinct from operational layers.
   = 15 records, $0.050 for a search) makes a continuously-polled live map structurally unaffordable; $100/month
   buys roughly one poll every 21 minutes for a single near-empty viewport. It is a fallback and a candidate for
   user-initiated enrichment, not a base layer.
+- `research/aircraft-free-path-addendum.md` — the free-path revision. The paid tier is not the answer; the open
+  networks ask for reciprocity or discretion instead of money. **ADSBHub**'s published terms grant, in writing
+  and unconditionally, the right to publish the data ("There are no restrictions on how the users will use the
+  data"), at the price of feeding at least one station and consuming a raw TCP/SBS stream. **ADSB IQ** offers
+  the best technical contract found (native `/v2/bbox`, WebSocket push, a published OpenAPI 3.1 file) and a
+  grant covering personal, research and commercial projects short of republishing the feed in its entirety —
+  subject to two unresolved contradictions between its docs and its Terms. The remaining blocker is three
+  emails and possibly one ~$30–50 receiver, not a subscription.
 
 ---
 
