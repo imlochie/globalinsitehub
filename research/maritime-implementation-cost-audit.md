@@ -54,3 +54,77 @@ cross into. Both are government open-data programmes, not commercial APIs.
 
 Requested branch `arena/signalwatch-maritime` was not used: this session is
 pinned to `arena/01a0f054-globalinsitehub`, and history was not rewritten.
+
+---
+
+# Deployment verification log
+
+## Attempt 1 — 2026-09-30, Arena sandbox (NOT the Replit deployment)
+
+Command: `pnpm --filter @workspace/api-server run verify:maritime`
+Head: `7fc7cf5`. Exit code: **0**. Vessels returned: **0**.
+
+Result classification: **DEPLOYMENT-HEALTHY / NO LIVE DATA.**
+Maritime is **not** live-verified. The contract held; no provider supplied data.
+
+| Provider | Status | Cause |
+| --- | --- | --- |
+| digitraffic | unavailable | Sandbox egress blocks the host (see below). Provider itself is healthy. |
+| barentswatch | unavailable | `BARENTSWATCH_CLIENT_ID`/`_SECRET` not set in this environment. |
+
+Cause isolated with evidence, not assumed:
+
+- DNS resolves (`meri.digitraffic.fi` → 52.85.129.x), so it is not name resolution.
+- TCP/443 **opens**, then the TLS handshake dies after Client Hello
+  (`SSL_ERROR_SYSCALL`, curl exit 35). Port 80 fails too (curl exit 52).
+- `https://github.com/` returns 200 from the same shell, so egress exists but is
+  restricted to an allowlist that does not include the provider hosts.
+- Digitraffic was independently confirmed **healthy at the same minute** as the
+  failed fetch (`dataUpdatedTime 2026-09-30T05:58:12Z`).
+
+Conclusion: environment egress allowlist, plus an unconfigured optional provider.
+Not a provider outage, not a request bug, not an implementation failure.
+
+### Offline replay of genuine captured provider bytes (not live verification)
+
+To retire parser risk while the socket stays blocked, a real Digitraffic payload
+slice (5 features + matching vessel metadata) was replayed through the real
+parser and the real route. No data was invented; nothing was committed.
+
+- `heading: 511` → `null`, `cog: 360.0` → `null`, `sog: 102.3` → `null`,
+  `imo: 0` → `null`. Real names/types merged by MMSI (LOYA, VOLGO DON 5079,
+  PRIMA LADY).
+- The canonical verifier against the replayed route: **exit 0, "Contract held
+  with real vessel data"**, including *"a down provider did not empty the
+  healthy one: 5 vessels still served"* (Digitraffic healthy, BarentsWatch
+  unavailable).
+- Frontend path on that data: 5 records → **1** normalized observation; the
+  other 4 were correctly **removed as stale** (positions 13.6–23.2 h old against
+  the 30-minute moving-vessel threshold). Inspector rendered real MMSI,
+  provenance and receipt time with no "Unknown"/"N/A"; control rendered
+  Operational + `Regional:` + both provider states; toggling maritime off
+  removed only maritime observations and re-enabling restored them.
+
+This proves the parser and the chain against genuine bytes. It does **not**
+substitute for a live run: the socket, the poll loop, the cache ageing and
+BarentsWatch's OAuth2 path remain unexercised.
+
+## Still required for LIVE VERIFIED
+
+Run the same command in Replit (egress present):
+
+```bash
+pnpm --filter @workspace/api-server run verify:maritime
+```
+
+Expected on success: `digitraffic available` with a non-zero vessel count and
+"Contract held with real vessel data". BarentsWatch stays `unavailable` until
+its free credentials are configured — that is acceptable and must not flip the
+layer to `planned`.
+
+## Cost position at this checkpoint
+
+Unchanged and re-confirmed: no paid API, no subscription, no usage billing, no
+per-request charge, no commercial account, no required paid upgrade. No account
+was created, no payment information entered, no trial enabled. The only
+package.json change in this work is a script entry; zero dependencies added.
