@@ -156,10 +156,12 @@ Operational:
 - `public-events` — geolocated records from the public briefing.
 - `maritime` — vessel positions from two free, openly licensed government AIS
   feeds. **Regional coverage, deliberately.**
+- `natural-hazards` — earthquake and natural-event observations from two free
+  public-sector hazard feeds. **Global reach, bounded completeness.**
 
 Planned (no feed implemented, nothing probed, no provider registered):
 
-- `aircraft`, `satellites`, `natural-hazards`, `weather`, `infrastructure`.
+- `aircraft`, `satellites`, `weather`, `infrastructure`.
 
 ### Maritime: regional by construction
 
@@ -234,6 +236,55 @@ failure.
 5. No UI change is required: the panel lists providers and the inspector reads
    provenance generically.
 
+### Natural hazards: global reach, bounded completeness
+
+| Source | Licence | Access | Covers |
+| --- | --- | --- | --- |
+| `usgs` | U.S. public domain | none — no key, no account | Worldwide earthquakes, magnitude 2.5+, past 24 h |
+| `nasa-eonet` | NASA ESDIS open data (CC0 default) | none — no key, no account | Worldwide curated open natural events |
+
+Design points specific to this layer:
+
+- **Coverage is derived, not declared.** `deriveHazardCoverage()` computes scope
+  from the sources that actually answered. With every source down it returns
+  `scope: "local"`, no regions, and "No hazard source is currently reachable, so
+  no coverage can be claimed" — an empty response is never dressed up as "no
+  hazards".
+- **No invented severity.** `magnitudeValue` always travels with
+  `magnitudeUnit`. `mww 5.1` and `2400 acres` are not compared, ranked or fused,
+  and there is one restrained marker style for all hazard types.
+- **Source-assigned categories only.** `hazardType` is copied from the source's
+  own classification. Nothing is derived from title text.
+- **Timestamps stay distinct.** `occurredAt` (source observation), `updatedAt`
+  (source revision, USGS only) and `receivedAt` (Signalwatch receipt) are
+  separate fields.
+- **Activity state only where documented.** EONET publishes `closed`, so EONET
+  records carry `activityStatus`. USGS does not, so USGS records carry `null` and
+  make no claim.
+- **Approximate geometry is labelled.** EONET polygons resolve to the mean of
+  their vertices and the record says so; no synthetic extent is drawn.
+- **No duplicate polling.** The hazards route and the briefing route both read
+  `hazard-sources/feed-cache.ts`, which fetches each upstream at most once per
+  60 s and settles the two feeds independently.
+
+Because these are hazard-source records, the `public-events` layer source filters
+them out by stable provider id prefix (`usgs-`, `eonet-`) — never by wording, so a
+news story about an earthquake remains a public event. See
+`research/natural-hazards-source-decision.md` for the licensing evidence and for
+the consequence this has for the public-events map layer.
+
+### Adding another free hazard source
+
+1. Add `artifacts/api-server/src/hazard-sources/<source>.ts` with a coverage
+   object, a source definition and a
+   `(payload, receivedAt) => HazardRecord[]` parser.
+2. Settle its fetch independently in `feed-cache.ts` and register it in
+   `registry.ts`.
+3. Add it to `naturalHazardLayerDefinition.providers`.
+
+Nothing else changes: the endpoint, normalization, coverage derivation, markers,
+sampling, inspector and panel are all source-agnostic.
+
 Aircraft remains gated on provider confirmation (see `research/`), so no aircraft
 provider or adapter exists.
 
@@ -253,3 +304,13 @@ sampling/inspector/control path and guards that shared surfaces never branch on
 `artifacts/api-server/tests/maritime-regression.test.ts` covers AIS sentinel
 handling, both provider parsers, cache ageing, provider isolation, coverage
 derivation and the route contract.
+`tests/natural-hazard-layer.test.tsx` covers the natural-hazards registry entry and
+its coverage honesty, hazard normalization (identity, provenance, rejected
+coordinates and times, unknown sources), the refusal to merge records across
+sources, the generic sampling/selection/inspector/control path, degraded source
+reporting, and guards that shared surfaces never branch on `"natural-hazards"` or
+`"natural-hazard"` and that the browser never calls USGS or NASA directly.
+`artifacts/api-server/tests/hazards-regression.test.ts` covers both hazard parsers
+against documented payload shapes (including polygon centring and magnitude units),
+category-not-from-title, coordinate and timestamp rejection, dedupe by provider id,
+coverage derivation, source independence, source filtering and response bounding.

@@ -90,7 +90,30 @@ and a shared record inspector with provenance intact.
   (under way: fresh ≤10 min, removed after 30 min; stationary: fresh ≤1 h, removed
   after 6 h); the provider position time and the Signalwatch receipt time are kept
   separate and never conflated. Attribution and licence travel with every record.
-- Aircraft, satellites, natural hazards, weather and infrastructure are registered as
+- Natural hazards is **operational with global reach at $0 recurring cost**. Two free
+  public-sector hazard feeds are aggregated server-side at
+  `GET /api/monitoring/hazards`:
+  - USGS Earthquake Hazards Program (U.S. public domain, no key) — worldwide
+    earthquakes, magnitude 2.5 and above, past 24 hours.
+  - NASA EONET v3 (NASA ESDIS open data, no key) — worldwide curated open natural
+    events such as wildfires, volcanoes, storms and sea/lake ice.
+  Both feeds share the same upstream cache as the briefing, so the layer adds no
+  extra provider polling. Reach is global but completeness is bounded and the UI says
+  so: an area with no markers means these two sources reported nothing there, not that
+  nothing is happening. A hazard type is always the category the source assigned and is
+  never inferred from a headline. Magnitudes always keep the scale they were measured
+  on; Signalwatch never computes a severity score and never ranks or fuses hazards
+  across sources. The source observation time and the Signalwatch receipt time are kept
+  separate. EONET records carry NASA's own disclaimer that they are approximations and
+  not official as to spatial or temporal extent. If a source fails it is reported as
+  unavailable — never as "no hazards".
+- Because USGS and NASA EONET records are hazard-source records, the **public-events
+  map layer** no longer renders them (they are excluded by stable provider id prefix,
+  never by wording). The written briefing still lists them. The remaining public-event
+  sources are news RSS feeds, which carry no coordinates, so the public-events map layer
+  currently has no mappable records of its own — this is stated honestly rather than
+  fixed by double-rendering hazards. See `research/natural-hazards-source-decision.md`.
+- Aircraft, satellites, weather and infrastructure are registered as
   planned layers with no data source connected.
 
 ## User preferences
