@@ -121,6 +121,12 @@ and a shared record inspector with provenance intact.
 - Keep the product honest: no fabricated data, provider health or freshness; planned
   layers must never be presented as operational.
 - Aircraft stays unimplemented until provider terms/rights are confirmed (`research/`).
+- **$0 recurring provider cost is an architectural invariant.** No paid accounts, no
+  usage billing, no free tiers that become paid at real workload, no architectures
+  that depend on a future paid upgrade. **Free government-data accounts are permitted
+  where they are required to access an explicitly licensed public-data source** (e.g.
+  Transport for NSW Open Data, CC BY 4.0). This narrow exception exists to serve the
+  $0 rule, not to weaken it.
 - **$0 recurring provider cost is an architectural invariant.** No subscriptions, no
   pay-per-request APIs, no usage billing, no free tiers that become paid at real
   workload. A provider that cannot be used indefinitely without payment leaves its
