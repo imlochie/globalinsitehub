@@ -72,3 +72,64 @@ export const GetMonitoringBriefingResponse = zod.object({
 })
 
 
+/**
+ * Returns bounded public camera catalogue records and per-provider catalogue health. Individual camera feeds are never probed or proxied; feedStatus and feedReachability are always "not-probed".
+ * @summary List public camera catalogue records
+ */
+export const getMonitoringCamerasQueryLimitDefault = 100;
+export const getMonitoringCamerasQueryLimitMax = 250;
+
+
+
+export const GetMonitoringCamerasQueryParams = zod.object({
+  "q": zod.coerce.string().optional().describe('Optional text filter applied to catalogue metadata.'),
+  "country": zod.coerce.string().optional().describe('Country name or ISO-3166 alpha-2 code filter.'),
+  "provider": zod.coerce.string().optional().describe('Provider id filter, e.g. qld-tmr.'),
+  "limit": zod.coerce.number().int().min(1).max(getMonitoringCamerasQueryLimitMax).default(getMonitoringCamerasQueryLimitDefault).describe('Maximum number of camera records to return.')
+})
+
+export const GetMonitoringCamerasResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "matchedCount": zod.number().int(),
+  "returnedCount": zod.number().int(),
+  "limit": zod.number().int(),
+  "providers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "attribution": zod.string(),
+  "catalogueUrl": zod.string().url(),
+  "status": zod.enum(['available', 'stale', 'unavailable']).describe('Catalogue availability. This is not a feed-reachability check.'),
+  "feedReachability": zod.enum(['not-probed']).describe('Signalwatch never probes or proxies individual camera feeds.'),
+  "cameraCount": zod.number().int(),
+  "checkedAt": zod.coerce.date(),
+  "lastSuccessfulFetchAt": zod.coerce.date().nullable(),
+  "message": zod.string()
+})),
+  "cameras": zod.array(zod.object({
+  "id": zod.string(),
+  "provider": zod.string(),
+  "displayName": zod.string(),
+  "description": zod.string().nullable(),
+  "country": zod.string(),
+  "countryCode": zod.string().nullable(),
+  "region": zod.string().nullable(),
+  "subregion": zod.string().nullable(),
+  "district": zod.string().nullish(),
+  "locality": zod.string().nullish(),
+  "postcode": zod.string().nullish(),
+  "latitude": zod.number(),
+  "longitude": zod.number(),
+  "direction": zod.string().nullable(),
+  "sourceUrl": zod.string().url(),
+  "encoding": zod.string().nullable(),
+  "format": zod.string().nullable(),
+  "imageUpdateRateMs": zod.number().int().nullable(),
+  "streamKind": zod.enum(['snapshot', 'image', 'video', 'unknown']),
+  "feedStatus": zod.enum(['not-probed']).describe('Catalogue listing only; the feed itself is never contacted.'),
+  "publicAccess": zod.enum(['catalogue-listed']),
+  "attribution": zod.string(),
+  "catalogueUrl": zod.string().url()
+}))
+})
+
+

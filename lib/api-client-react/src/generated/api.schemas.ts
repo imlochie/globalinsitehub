@@ -72,6 +72,118 @@ export interface MonitoringBriefing {
   sources: MonitoringSource[];
 }
 
+/**
+ * Catalogue availability. This is not a feed-reachability check.
+ */
+export type CameraProviderStatusStatus = typeof CameraProviderStatusStatus[keyof typeof CameraProviderStatusStatus];
+
+
+export const CameraProviderStatusStatus = {
+  available: 'available',
+  stale: 'stale',
+  unavailable: 'unavailable',
+} as const;
+
+/**
+ * Signalwatch never probes or proxies individual camera feeds.
+ */
+export type CameraProviderStatusFeedReachability = typeof CameraProviderStatusFeedReachability[keyof typeof CameraProviderStatusFeedReachability];
+
+
+export const CameraProviderStatusFeedReachability = {
+  'not-probed': 'not-probed',
+} as const;
+
+export interface CameraProviderStatus {
+  id: string;
+  name: string;
+  attribution: string;
+  catalogueUrl: string;
+  /** Catalogue availability. This is not a feed-reachability check. */
+  status: CameraProviderStatusStatus;
+  /** Signalwatch never probes or proxies individual camera feeds. */
+  feedReachability: CameraProviderStatusFeedReachability;
+  cameraCount: number;
+  checkedAt: string;
+  /** @nullable */
+  lastSuccessfulFetchAt: string | null;
+  message: string;
+}
+
+export type CameraRecordStreamKind = typeof CameraRecordStreamKind[keyof typeof CameraRecordStreamKind];
+
+
+export const CameraRecordStreamKind = {
+  snapshot: 'snapshot',
+  image: 'image',
+  video: 'video',
+  unknown: 'unknown',
+} as const;
+
+/**
+ * Catalogue listing only; the feed itself is never contacted.
+ */
+export type CameraRecordFeedStatus = typeof CameraRecordFeedStatus[keyof typeof CameraRecordFeedStatus];
+
+
+export const CameraRecordFeedStatus = {
+  'not-probed': 'not-probed',
+} as const;
+
+export type CameraRecordPublicAccess = typeof CameraRecordPublicAccess[keyof typeof CameraRecordPublicAccess];
+
+
+export const CameraRecordPublicAccess = {
+  'catalogue-listed': 'catalogue-listed',
+} as const;
+
+export interface CameraRecord {
+  id: string;
+  provider: string;
+  displayName: string;
+  /** @nullable */
+  description: string | null;
+  country: string;
+  /** @nullable */
+  countryCode: string | null;
+  /** @nullable */
+  region: string | null;
+  /** @nullable */
+  subregion: string | null;
+  /** @nullable */
+  district?: string | null;
+  /** @nullable */
+  locality?: string | null;
+  /** @nullable */
+  postcode?: string | null;
+  latitude: number;
+  longitude: number;
+  /** @nullable */
+  direction: string | null;
+  sourceUrl: string;
+  /** @nullable */
+  encoding: string | null;
+  /** @nullable */
+  format: string | null;
+  /** @nullable */
+  imageUpdateRateMs: number | null;
+  streamKind: CameraRecordStreamKind;
+  /** Catalogue listing only; the feed itself is never contacted. */
+  feedStatus: CameraRecordFeedStatus;
+  publicAccess: CameraRecordPublicAccess;
+  attribution: string;
+  catalogueUrl: string;
+}
+
+export interface MonitoringCameras {
+  generatedAt: string;
+  matchedCount: number;
+  returnedCount: number;
+  limit: number;
+  providers: CameraProviderStatus[];
+  cameras: CameraRecord[];
+}
+
 export type GetMonitoringBriefingParams = {
 /**
  * Optional text filter applied to headlines and events.
@@ -81,6 +193,27 @@ q?: string;
  * Maximum number of headlines and events to return.
  * @minimum 1
  * @maximum 60
+ */
+limit?: number;
+};
+
+export type GetMonitoringCamerasParams = {
+/**
+ * Optional text filter applied to catalogue metadata.
+ */
+q?: string;
+/**
+ * Country name or ISO-3166 alpha-2 code filter.
+ */
+country?: string;
+/**
+ * Provider id filter, e.g. qld-tmr.
+ */
+provider?: string;
+/**
+ * Maximum number of camera records to return.
+ * @minimum 1
+ * @maximum 250
  */
 limit?: number;
 };
