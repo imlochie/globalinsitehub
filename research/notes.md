@@ -127,3 +127,20 @@ Two findings in this file are superseded there:
   readable. The terms restrict use to "personal, non-commercial use only", which a public map is not.
 
 No live endpoint probe was made in the 2026-09-30 pass: that sandbox had no outbound network egress.
+
+## Maritime gate — see maritime-provider-decision.md (2026-09-30)
+
+`research/maritime-provider-decision.md` records the Maritime provider feasibility gate:
+**CONDITIONAL** for the global layer as specified, because the only two globally-scoped free providers each
+fail a non-technical condition — AISStream publishes no terms of service at all, and AISHub's published
+terms grant contributors the right to *use* the aggregated data without stating any public-display or
+redistribution right (and require a receiver meeting measured quality thresholds).
+
+Unlike the aircraft gate, two government sources are already cleared on rights, cost nothing and require no
+reciprocity: **Fintraffic / Digitraffic** (Finnish waterways, CC BY 4.0, no registration, REST + MQTT) and
+**Kystverket / BarentsWatch** (Norwegian EZ plus Svalbard and Jan Mayen, NLOD 2.0, free OAuth2 client
+credentials, includes satellite AIS). Both are regional, and both filter vessel classes, so using them is
+honest only if the layer states its coverage. The scope choice — regional-honest now versus global-gated — is
+documented at the end of that record and is deliberately left to the owner.
+
+`maritime` remains `planned`. No live probes were possible: the sandbox has no outbound egress.
