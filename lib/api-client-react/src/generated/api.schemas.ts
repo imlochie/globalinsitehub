@@ -308,6 +308,105 @@ export interface MonitoringVessels {
   vessels: VesselRecord[];
 }
 
+/**
+ * Derived from the sources that actually answered, never declared statically.
+ */
+export type HazardCoverageScope = typeof HazardCoverageScope[keyof typeof HazardCoverageScope];
+
+
+export const HazardCoverageScope = {
+  global: 'global',
+  regional: 'regional',
+  local: 'local',
+} as const;
+
+export interface HazardCoverage {
+  /** Derived from the sources that actually answered, never declared statically. */
+  scope: HazardCoverageScope;
+  regions: string[];
+  /** Plain-language statement of what the coverage does and does not include, including detection thresholds such as the USGS magnitude 2.5 floor. */
+  note: string;
+}
+
+/**
+ * One source failing never removes the others.
+ */
+export type HazardSourceStatusStatus = typeof HazardSourceStatusStatus[keyof typeof HazardSourceStatusStatus];
+
+
+export const HazardSourceStatusStatus = {
+  available: 'available',
+  unavailable: 'unavailable',
+} as const;
+
+export interface HazardSourceStatus {
+  id: string;
+  name: string;
+  /** Attribution string the source asks for. */
+  attribution: string;
+  licence: string;
+  licenceUrl: string;
+  catalogueUrl: string;
+  /** One source failing never removes the others. */
+  status: HazardSourceStatusStatus;
+  coverage: HazardCoverage;
+  hazardCount: number;
+  checkedAt: string;
+  message: string;
+}
+
+/**
+ * Source-declared activity state, present only where the source documents one (EONET "closed"). Null means the source makes no such claim.
+ */
+export type HazardRecordActivityStatus = typeof HazardRecordActivityStatus[keyof typeof HazardRecordActivityStatus] | null;
+
+
+export const HazardRecordActivityStatus = {
+  open: 'open',
+  closed: 'closed',
+} as const;
+
+export interface HazardRecord {
+  /** Stable identity in the form "<source>:<provider record id>". */
+  id: string;
+  source: string;
+  /** Hazard category exactly as the source classifies it. Never inferred from text. */
+  hazardType: string;
+  title: string;
+  latitude: number;
+  longitude: number;
+  /** When the source says the hazard was observed. Never the fetch time. */
+  occurredAt: string;
+  /** When the source last revised the record, where the source publishes it. */
+  updatedAt?: string | null;
+  /** When the Signalwatch API server received the record. */
+  receivedAt: string;
+  /** Source-declared activity state, present only where the source documents one (EONET "closed"). Null means the source makes no such claim. */
+  activityStatus?: HazardRecordActivityStatus;
+  magnitudeValue?: number | null;
+  /** The scale the magnitude is measured on. Magnitudes from different scales are never fused into a single severity number. */
+  magnitudeUnit?: string | null;
+  magnitudeDescription?: string | null;
+  depthKm?: number | null;
+  /** Provider review state, e.g. USGS "automatic" or "reviewed". */
+  reviewStatus?: string | null;
+  place?: string | null;
+  description?: string | null;
+  sourceUrl: string;
+  attribution: string;
+  licence: string;
+}
+
+export interface MonitoringHazards {
+  generatedAt: string;
+  matchedCount: number;
+  returnedCount: number;
+  limit: number;
+  coverage: HazardCoverage;
+  sources: HazardSourceStatus[];
+  hazards: HazardRecord[];
+}
+
 export type GetMonitoringBriefingParams = {
 /**
  * Optional text filter applied to headlines and events.
@@ -355,6 +454,23 @@ provider?: string;
  * Maximum number of vessel records to return.
  * @minimum 1
  * @maximum 1000
+ */
+limit?: number;
+};
+
+export type GetMonitoringHazardsParams = {
+/**
+ * Optional text filter applied to hazard title, type, place and source.
+ */
+q?: string;
+/**
+ * Source id filter, e.g. usgs or nasa-eonet.
+ */
+source?: string;
+/**
+ * Maximum number of hazard records to return.
+ * @minimum 1
+ * @maximum 500
  */
 limit?: number;
 };

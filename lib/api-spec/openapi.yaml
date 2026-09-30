@@ -141,6 +141,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MonitoringVessels"
+  /monitoring/hazards:
+    get:
+      operationId: getMonitoringHazards
+      tags: [monitoring]
+      summary: List natural hazard observations from free, openly licensed hazard sources
+      description: >-
+        Returns bounded natural hazard observations aggregated server-side from
+        hazard-oriented public data sources (USGS earthquakes, NASA EONET events),
+        plus per-source health, licensing and explicit coverage metadata. Records are
+        structured observations published by hazard sources; nothing here is derived
+        from news headlines, and a hazard type is never inferred from wording. The
+        source observation time and the Signalwatch receipt time are always kept
+        distinct. One source failing marks that source unavailable and never empties
+        the layer. Upstream feeds are shared with the briefing route, so this endpoint
+        adds no additional polling of the providers.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Optional text filter applied to hazard title, type, place and source.
+          schema:
+            type: string
+        - name: source
+          in: query
+          required: false
+          description: Source id filter, e.g. usgs or nasa-eonet.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of hazard records to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 250
+      responses:
+        "200":
+          description: Bounded hazard observations with coverage and source health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringHazards"
 components:
   schemas:
     HealthStatus:
@@ -239,6 +283,180 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/VesselRecord"
+    MonitoringHazards:
+      type: object
+      required:
+        - generatedAt
+        - matchedCount
+        - returnedCount
+        - limit
+        - coverage
+        - sources
+        - hazards
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        matchedCount:
+          type: integer
+        returnedCount:
+          type: integer
+        limit:
+          type: integer
+        coverage:
+          $ref: "#/components/schemas/HazardCoverage"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/HazardSourceStatus"
+        hazards:
+          type: array
+          items:
+            $ref: "#/components/schemas/HazardRecord"
+    HazardCoverage:
+      type: object
+      required:
+        - scope
+        - regions
+        - note
+      properties:
+        scope:
+          type: string
+          enum: [global, regional, local]
+          description: Derived from the sources that actually answered, never declared statically.
+        regions:
+          type: array
+          items:
+            type: string
+        note:
+          type: string
+          description: >-
+            Plain-language statement of what the coverage does and does not include,
+            including detection thresholds such as the USGS magnitude 2.5 floor.
+    HazardSourceStatus:
+      type: object
+      required:
+        - id
+        - name
+        - attribution
+        - licence
+        - licenceUrl
+        - catalogueUrl
+        - status
+        - coverage
+        - hazardCount
+        - checkedAt
+        - message
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        attribution:
+          type: string
+          description: Attribution string the source asks for.
+        licence:
+          type: string
+        licenceUrl:
+          type: string
+          format: uri
+        catalogueUrl:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [available, unavailable]
+          description: One source failing never removes the others.
+        coverage:
+          $ref: "#/components/schemas/HazardCoverage"
+        hazardCount:
+          type: integer
+        checkedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+    HazardRecord:
+      type: object
+      required:
+        - id
+        - source
+        - hazardType
+        - title
+        - latitude
+        - longitude
+        - occurredAt
+        - receivedAt
+        - sourceUrl
+        - attribution
+        - licence
+      properties:
+        id:
+          type: string
+          description: Stable identity in the form "<source>:<provider record id>".
+        source:
+          type: string
+        hazardType:
+          type: string
+          description: Hazard category exactly as the source classifies it. Never inferred from text.
+        title:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        occurredAt:
+          type: string
+          format: date-time
+          description: When the source says the hazard was observed. Never the fetch time.
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the source last revised the record, where the source publishes it.
+        receivedAt:
+          type: string
+          format: date-time
+          description: When the Signalwatch API server received the record.
+        activityStatus:
+          type: string
+          enum: [open, closed]
+          nullable: true
+          description: >-
+            Source-declared activity state, present only where the source documents
+            one (EONET "closed"). Null means the source makes no such claim.
+        magnitudeValue:
+          type: number
+          nullable: true
+        magnitudeUnit:
+          type: string
+          nullable: true
+          description: >-
+            The scale the magnitude is measured on. Magnitudes from different scales
+            are never fused into a single severity number.
+        magnitudeDescription:
+          type: string
+          nullable: true
+        depthKm:
+          type: number
+          nullable: true
+        reviewStatus:
+          type: string
+          nullable: true
+          description: Provider review state, e.g. USGS "automatic" or "reviewed".
+        place:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        sourceUrl:
+          type: string
+          format: uri
+        attribution:
+          type: string
+        licence:
+          type: string
     MaritimeCoverage:
       type: object
       required:

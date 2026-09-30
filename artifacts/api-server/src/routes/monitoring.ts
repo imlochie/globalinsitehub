@@ -3,13 +3,16 @@ import {
   GetMonitoringBriefingQueryParams,
   GetMonitoringBriefingResponse,
 } from "@workspace/api-zod";
+import {
+  EONET_FEED_URL,
+  getHazardFeeds,
+  USGS_FEED_URL,
+} from "../hazard-sources/feed-cache";
 
 const router: IRouter = Router();
 
-const USGS_API =
-  "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson";
-const EONET_API =
-  "https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=60";
+const USGS_API = USGS_FEED_URL;
+const EONET_API = EONET_FEED_URL;
 const CACHE_TTL_MS = 60_000;
 const NEWS_FEEDS = [
   {
@@ -124,13 +127,6 @@ function httpUrl(value: unknown): string | null {
   }
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(9_000) });
-  if (!response.ok) {
-    throw new Error(`Upstream returned HTTP ${response.status}`);
-  }
-  return response.json() as Promise<unknown>;
-}
 
 async function fetchText(url: string): Promise<string> {
   const response = await fetch(url, { signal: AbortSignal.timeout(9_000) });
@@ -313,13 +309,12 @@ async function refreshPublicFeeds(): Promise<PublicFeeds> {
         parseRssHeadlines(await fetchText(feed.url), feed),
       ),
     ),
-    Promise.allSettled([
-      fetchJson(USGS_API),
-      fetchJson(EONET_API),
-    ]),
+    // Shared with the /monitoring/hazards route: one upstream request per
+    // feed per cache window, regardless of how many routes consume it.
+    getHazardFeeds(),
   ]);
 
-  const [earthquakeResult, nasaResult] = eventResults;
+  const { usgs: earthquakeResult, eonet: nasaResult } = eventResults;
   const headlines = [
     ...new Map(
       newsResults
@@ -332,14 +327,10 @@ async function refreshPublicFeeds(): Promise<PublicFeeds> {
     (a, b) =>
       new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
   );
-  const earthquakes =
-    earthquakeResult.status === "fulfilled"
-      ? parseEarthquakes(earthquakeResult.value)
-      : [];
-  const nasaEvents =
-    nasaResult.status === "fulfilled"
-      ? parseEonetEvents(nasaResult.value)
-      : [];
+  const earthquakes = earthquakeResult.ok
+    ? parseEarthquakes(earthquakeResult.payload)
+    : [];
+  const nasaEvents = nasaResult.ok ? parseEonetEvents(nasaResult.payload) : [];
 
   const sources: SourceStatus[] = [
     ...NEWS_FEEDS.map((feed, index) => {
@@ -371,11 +362,9 @@ async function refreshPublicFeeds(): Promise<PublicFeeds> {
         category: "Earthquakes",
         attribution: "U.S. Geological Survey",
         url: USGS_API,
-        status:
-          earthquakeResult.status === "fulfilled" ? "online" : "unavailable",
+        status: earthquakeResult.ok ? "online" : "unavailable",
         itemsReceived: earthquakes.length,
-        message:
-          earthquakeResult.status === "fulfilled"
+        message: earthquakeResult.ok
             ? "Magnitude 2.5+ events from the past 24 hours."
             : "The USGS feed did not respond. Other feeds remain available.",
       },
@@ -388,10 +377,9 @@ async function refreshPublicFeeds(): Promise<PublicFeeds> {
         category: "Natural events",
         attribution: "NASA Earth Observatory Natural Event Tracker",
         url: EONET_API,
-        status: nasaResult.status === "fulfilled" ? "online" : "unavailable",
+        status: nasaResult.ok ? "online" : "unavailable",
         itemsReceived: nasaEvents.length,
-        message:
-          nasaResult.status === "fulfilled"
+        message: nasaResult.ok
             ? "Open natural-event records from NASA EONET."
             : "The NASA EONET feed did not respond. Other feeds remain available.",
       },

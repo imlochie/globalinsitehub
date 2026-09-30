@@ -18,10 +18,12 @@ import type {
 import type {
   GetMonitoringBriefingParams,
   GetMonitoringCamerasParams,
+  GetMonitoringHazardsParams,
   GetMonitoringMaritimeParams,
   HealthStatus,
   MonitoringBriefing,
   MonitoringCameras,
+  MonitoringHazards,
   MonitoringVessels
 } from './api.schemas';
 
@@ -373,6 +375,91 @@ export function useGetMonitoringMaritime<TData = Awaited<ReturnType<typeof getMo
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMonitoringMaritimeQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMonitoringHazardsUrl = (params?: GetMonitoringHazardsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/monitoring/hazards?${stringifiedParams}` : `/api/monitoring/hazards`
+}
+
+/**
+ * Returns bounded natural hazard observations aggregated server-side from hazard-oriented public data sources (USGS earthquakes, NASA EONET events), plus per-source health, licensing and explicit coverage metadata. Records are structured observations published by hazard sources; nothing here is derived from news headlines, and a hazard type is never inferred from wording. The source observation time and the Signalwatch receipt time are always kept distinct. One source failing marks that source unavailable and never empties the layer. Upstream feeds are shared with the briefing route, so this endpoint adds no additional polling of the providers.
+ * @summary List natural hazard observations from free, openly licensed hazard sources
+ */
+export const getMonitoringHazards = async (params?: GetMonitoringHazardsParams, options?: Parameters<typeof customFetch>[1]): Promise<MonitoringHazards> => {
+
+  return customFetch<MonitoringHazards>(getGetMonitoringHazardsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMonitoringHazardsQueryKey = (params?: GetMonitoringHazardsParams,) => {
+    return [
+    `/api/monitoring/hazards`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMonitoringHazardsQueryOptions = <TData = Awaited<ReturnType<typeof getMonitoringHazards>>, TError = ErrorType<unknown>>(params?: GetMonitoringHazardsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringHazards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMonitoringHazardsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMonitoringHazards>>> = ({ signal }) => getMonitoringHazards(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMonitoringHazards>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMonitoringHazardsQueryResult = NonNullable<Awaited<ReturnType<typeof getMonitoringHazards>>>
+export type GetMonitoringHazardsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List natural hazard observations from free, openly licensed hazard sources
+ */
+
+export function useGetMonitoringHazards<TData = Awaited<ReturnType<typeof getMonitoringHazards>>, TError = ErrorType<unknown>>(
+ params?: GetMonitoringHazardsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringHazards>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMonitoringHazardsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

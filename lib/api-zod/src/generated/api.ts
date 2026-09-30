@@ -203,3 +203,70 @@ export const GetMonitoringMaritimeResponse = zod.object({
 })
 
 
+/**
+ * Returns bounded natural hazard observations aggregated server-side from hazard-oriented public data sources (USGS earthquakes, NASA EONET events), plus per-source health, licensing and explicit coverage metadata. Records are structured observations published by hazard sources; nothing here is derived from news headlines, and a hazard type is never inferred from wording. The source observation time and the Signalwatch receipt time are always kept distinct. One source failing marks that source unavailable and never empties the layer. Upstream feeds are shared with the briefing route, so this endpoint adds no additional polling of the providers.
+ * @summary List natural hazard observations from free, openly licensed hazard sources
+ */
+export const getMonitoringHazardsQueryLimitDefault = 250;
+export const getMonitoringHazardsQueryLimitMax = 500;
+
+
+
+export const GetMonitoringHazardsQueryParams = zod.object({
+  "q": zod.coerce.string().optional().describe('Optional text filter applied to hazard title, type, place and source.'),
+  "source": zod.coerce.string().optional().describe('Source id filter, e.g. usgs or nasa-eonet.'),
+  "limit": zod.coerce.number().int().min(1).max(getMonitoringHazardsQueryLimitMax).default(getMonitoringHazardsQueryLimitDefault).describe('Maximum number of hazard records to return.')
+})
+
+export const GetMonitoringHazardsResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "matchedCount": zod.number().int(),
+  "returnedCount": zod.number().int(),
+  "limit": zod.number().int(),
+  "coverage": zod.object({
+  "scope": zod.enum(['global', 'regional', 'local']).describe('Derived from the sources that actually answered, never declared statically.'),
+  "regions": zod.array(zod.string()),
+  "note": zod.string().describe('Plain-language statement of what the coverage does and does not include, including detection thresholds such as the USGS magnitude 2.5 floor.')
+}),
+  "sources": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "attribution": zod.string().describe('Attribution string the source asks for.'),
+  "licence": zod.string(),
+  "licenceUrl": zod.string().url(),
+  "catalogueUrl": zod.string().url(),
+  "status": zod.enum(['available', 'unavailable']).describe('One source failing never removes the others.'),
+  "coverage": zod.object({
+  "scope": zod.enum(['global', 'regional', 'local']).describe('Derived from the sources that actually answered, never declared statically.'),
+  "regions": zod.array(zod.string()),
+  "note": zod.string().describe('Plain-language statement of what the coverage does and does not include, including detection thresholds such as the USGS magnitude 2.5 floor.')
+}),
+  "hazardCount": zod.number().int(),
+  "checkedAt": zod.coerce.date(),
+  "message": zod.string()
+})),
+  "hazards": zod.array(zod.object({
+  "id": zod.string().describe('Stable identity in the form "<source>:<provider record id>".'),
+  "source": zod.string(),
+  "hazardType": zod.string().describe('Hazard category exactly as the source classifies it. Never inferred from text.'),
+  "title": zod.string(),
+  "latitude": zod.number(),
+  "longitude": zod.number(),
+  "occurredAt": zod.coerce.date().describe('When the source says the hazard was observed. Never the fetch time.'),
+  "updatedAt": zod.coerce.date().nullish().describe('When the source last revised the record, where the source publishes it.'),
+  "receivedAt": zod.coerce.date().describe('When the Signalwatch API server received the record.'),
+  "activityStatus": zod.enum(['open', 'closed']).nullish().describe('Source-declared activity state, present only where the source documents one (EONET "closed"). Null means the source makes no such claim.'),
+  "magnitudeValue": zod.number().nullish(),
+  "magnitudeUnit": zod.string().nullish().describe('The scale the magnitude is measured on. Magnitudes from different scales are never fused into a single severity number.'),
+  "magnitudeDescription": zod.string().nullish(),
+  "depthKm": zod.number().nullish(),
+  "reviewStatus": zod.string().nullish().describe('Provider review state, e.g. USGS "automatic" or "reviewed".'),
+  "place": zod.string().nullish(),
+  "description": zod.string().nullish(),
+  "sourceUrl": zod.string().url(),
+  "attribution": zod.string(),
+  "licence": zod.string()
+}))
+})
+
+
