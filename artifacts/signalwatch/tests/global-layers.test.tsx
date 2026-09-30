@@ -175,7 +175,13 @@ test("normalized camera identity and provenance survive map, list, and filter us
   assert.equal(fromMap.sourceUrl, record.sourceUrl);
   assert.equal(fromMap.catalogueUrl, record.catalogueUrl);
   assert.equal(fromMap.providerStatus?.status, "available");
-  assert.equal(fromMap.providerStatus?.feedReachability, "not-probed");
+  // Camera provider health carries the camera-specific feed reachability field.
+  assert.equal(
+    fromMap.providerStatus && "feedReachability" in fromMap.providerStatus
+      ? fromMap.providerStatus.feedReachability
+      : null,
+    "not-probed",
+  );
   assert.equal(fromMap.record.feedStatus, "not-probed");
 
   const event = eventRecord("incident-7");
