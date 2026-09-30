@@ -184,6 +184,130 @@ export interface MonitoringCameras {
   cameras: CameraRecord[];
 }
 
+/**
+ * Signalwatch maritime coverage is regional; it must not be presented as global.
+ */
+export type MaritimeCoverageScope = typeof MaritimeCoverageScope[keyof typeof MaritimeCoverageScope];
+
+
+export const MaritimeCoverageScope = {
+  global: 'global',
+  regional: 'regional',
+  local: 'local',
+} as const;
+
+export interface MaritimeCoverage {
+  /** Signalwatch maritime coverage is regional; it must not be presented as global. */
+  scope: MaritimeCoverageScope;
+  /** Human-readable regions the registered providers actually cover. */
+  regions: string[];
+  /** Plain-language statement of what the coverage does and does not include. */
+  note: string;
+}
+
+/**
+ * Feed availability. One provider failing never removes the others.
+ */
+export type MaritimeProviderStatusStatus = typeof MaritimeProviderStatusStatus[keyof typeof MaritimeProviderStatusStatus];
+
+
+export const MaritimeProviderStatusStatus = {
+  available: 'available',
+  stale: 'stale',
+  unavailable: 'unavailable',
+} as const;
+
+export interface MaritimeProviderStatus {
+  id: string;
+  name: string;
+  /** Attribution string required by the provider licence. */
+  attribution: string;
+  /** Licence short name, e.g. "CC BY 4.0" or "NLOD 2.0". */
+  licence: string;
+  licenceUrl: string;
+  catalogueUrl: string;
+  /** Feed availability. One provider failing never removes the others. */
+  status: MaritimeProviderStatusStatus;
+  coverage: MaritimeCoverage;
+  vesselCount: number;
+  checkedAt: string;
+  /** @nullable */
+  lastSuccessfulFetchAt: string | null;
+  message: string;
+}
+
+/**
+ * One normalized vessel position. Optional AIS fields are null when the source did not supply them or supplied a documented not-available sentinel (course 360, speed 102.3/102.4, heading 511, IMO 0). Nothing is inferred.
+ */
+export interface VesselRecord {
+  /** Stable identity, "<provider>:<mmsi>". */
+  id: string;
+  provider: string;
+  /** Maritime Mobile Service Identity, as a string so leading zeros survive. */
+  mmsi: string;
+  /**
+     * IMO number when supplied; null when the source reported 0 or omitted it.
+     * @nullable
+     */
+  imo: string | null;
+  /** @nullable */
+  callSign: string | null;
+  /** @nullable */
+  name: string | null;
+  /**
+     * Raw AIS ship type code as published by the provider. Not an assessment.
+     * @nullable
+     */
+  shipType: number | null;
+  /**
+     * Label for the AIS ship-type code as the provider classifies it. Providers may coarsen these codes; the label is the source's classification, never an inference by Signalwatch.
+     * @nullable
+     */
+  shipTypeLabel: string | null;
+  latitude: number;
+  longitude: number;
+  /** @nullable */
+  courseOverGround: number | null;
+  /** @nullable */
+  heading: number | null;
+  /**
+     * Speed over ground in knots.
+     * @nullable
+     */
+  speedOverGround: number | null;
+  /** @nullable */
+  navigationalStatus: number | null;
+  /** @nullable */
+  navigationalStatusLabel: string | null;
+  /**
+     * Free text entered by the vessel's crew. Reported, not verified.
+     * @nullable
+     */
+  destination: string | null;
+  /** @nullable */
+  draughtMetres: number | null;
+  /**
+     * When the provider says the position was reported. Null when the provider supplies no position time; it is never substituted with the receipt time.
+     * @nullable
+     */
+  positionTimestamp: string | null;
+  /** When the Signalwatch API server received this record from the provider. */
+  receivedAt: string;
+  sourceUrl: string;
+  attribution: string;
+  licence: string;
+}
+
+export interface MonitoringVessels {
+  generatedAt: string;
+  matchedCount: number;
+  returnedCount: number;
+  limit: number;
+  coverage: MaritimeCoverage;
+  providers: MaritimeProviderStatus[];
+  vessels: VesselRecord[];
+}
+
 export type GetMonitoringBriefingParams = {
 /**
  * Optional text filter applied to headlines and events.
@@ -214,6 +338,23 @@ provider?: string;
  * Maximum number of camera records to return.
  * @minimum 1
  * @maximum 250
+ */
+limit?: number;
+};
+
+export type GetMonitoringMaritimeParams = {
+/**
+ * Optional text filter applied to vessel name, callsign, MMSI, IMO and destination.
+ */
+q?: string;
+/**
+ * Provider id filter, e.g. digitraffic.
+ */
+provider?: string;
+/**
+ * Maximum number of vessel records to return.
+ * @minimum 1
+ * @maximum 1000
  */
 limit?: number;
 };

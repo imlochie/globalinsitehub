@@ -99,6 +99,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MonitoringCameras"
+  /monitoring/maritime:
+    get:
+      operationId: getMonitoringMaritime
+      tags: [monitoring]
+      summary: List vessel positions from free, openly licensed regional AIS sources
+      description: >-
+        Returns bounded vessel positions aggregated server-side from openly licensed
+        regional AIS providers, plus per-provider health and explicit coverage
+        metadata. Coverage is REGIONAL, not global: absence of vessels outside the
+        declared regions means Signalwatch has no maritime source there, not that no
+        vessels are present. Every record carries the provider that supplied it, the
+        provider licence, and both the provider position timestamp (when supplied) and
+        the Signalwatch receipt time; the two are never conflated.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Optional text filter applied to vessel name, callsign, MMSI, IMO and destination.
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Provider id filter, e.g. digitraffic.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of vessel records to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 400
+      responses:
+        "200":
+          description: Bounded vessel positions with coverage and provider health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringVessels"
 components:
   schemas:
     HealthStatus:
@@ -167,6 +209,194 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/CameraRecord"
+    MonitoringVessels:
+      type: object
+      required:
+        - generatedAt
+        - matchedCount
+        - returnedCount
+        - limit
+        - coverage
+        - providers
+        - vessels
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        matchedCount:
+          type: integer
+        returnedCount:
+          type: integer
+        limit:
+          type: integer
+        coverage:
+          $ref: "#/components/schemas/MaritimeCoverage"
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/MaritimeProviderStatus"
+        vessels:
+          type: array
+          items:
+            $ref: "#/components/schemas/VesselRecord"
+    MaritimeCoverage:
+      type: object
+      required:
+        - scope
+        - regions
+        - note
+      properties:
+        scope:
+          type: string
+          enum: [global, regional, local]
+          description: Signalwatch maritime coverage is regional; it must not be presented as global.
+        regions:
+          type: array
+          description: Human-readable regions the registered providers actually cover.
+          items:
+            type: string
+        note:
+          type: string
+          description: Plain-language statement of what the coverage does and does not include.
+    MaritimeProviderStatus:
+      type: object
+      required:
+        - id
+        - name
+        - attribution
+        - licence
+        - licenceUrl
+        - catalogueUrl
+        - status
+        - coverage
+        - vesselCount
+        - checkedAt
+        - lastSuccessfulFetchAt
+        - message
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        attribution:
+          type: string
+          description: Attribution string required by the provider licence.
+        licence:
+          type: string
+          description: Licence short name, e.g. "CC BY 4.0" or "NLOD 2.0".
+        licenceUrl:
+          type: string
+          format: uri
+        catalogueUrl:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [available, stale, unavailable]
+          description: Feed availability. One provider failing never removes the others.
+        coverage:
+          $ref: "#/components/schemas/MaritimeCoverage"
+        vesselCount:
+          type: integer
+        checkedAt:
+          type: string
+          format: date-time
+        lastSuccessfulFetchAt:
+          type: ["string", "null"]
+          format: date-time
+        message:
+          type: string
+    VesselRecord:
+      type: object
+      description: >-
+        One normalized vessel position. Optional AIS fields are null when the source
+        did not supply them or supplied a documented not-available sentinel
+        (course 360, speed 102.3/102.4, heading 511, IMO 0). Nothing is inferred.
+      required:
+        - id
+        - provider
+        - mmsi
+        - imo
+        - callSign
+        - name
+        - shipType
+        - shipTypeLabel
+        - latitude
+        - longitude
+        - courseOverGround
+        - heading
+        - speedOverGround
+        - navigationalStatus
+        - navigationalStatusLabel
+        - destination
+        - draughtMetres
+        - positionTimestamp
+        - receivedAt
+        - sourceUrl
+        - attribution
+        - licence
+      properties:
+        id:
+          type: string
+          description: Stable identity, "<provider>:<mmsi>".
+        provider:
+          type: string
+        mmsi:
+          type: string
+          description: Maritime Mobile Service Identity, as a string so leading zeros survive.
+        imo:
+          type: ["string", "null"]
+          description: IMO number when supplied; null when the source reported 0 or omitted it.
+        callSign:
+          type: ["string", "null"]
+        name:
+          type: ["string", "null"]
+        shipType:
+          type: ["integer", "null"]
+          description: Raw AIS ship type code as published by the provider. Not an assessment.
+        shipTypeLabel:
+          type: ["string", "null"]
+          description: >-
+            Label for the AIS ship-type code as the provider classifies it. Providers may
+            coarsen these codes; the label is the source's classification, never an
+            inference by Signalwatch.
+        latitude:
+          type: number
+        longitude:
+          type: number
+        courseOverGround:
+          type: ["number", "null"]
+        heading:
+          type: ["integer", "null"]
+        speedOverGround:
+          type: ["number", "null"]
+          description: Speed over ground in knots.
+        navigationalStatus:
+          type: ["integer", "null"]
+        navigationalStatusLabel:
+          type: ["string", "null"]
+        destination:
+          type: ["string", "null"]
+          description: Free text entered by the vessel's crew. Reported, not verified.
+        draughtMetres:
+          type: ["number", "null"]
+        positionTimestamp:
+          type: ["string", "null"]
+          format: date-time
+          description: >-
+            When the provider says the position was reported. Null when the provider
+            supplies no position time; it is never substituted with the receipt time.
+        receivedAt:
+          type: string
+          format: date-time
+          description: When the Signalwatch API server received this record from the provider.
+        sourceUrl:
+          type: string
+          format: uri
+        attribution:
+          type: string
+        licence:
+          type: string
     CameraProviderStatus:
       type: object
       required:

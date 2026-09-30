@@ -133,3 +133,73 @@ export const GetMonitoringCamerasResponse = zod.object({
 })
 
 
+/**
+ * Returns bounded vessel positions aggregated server-side from openly licensed regional AIS providers, plus per-provider health and explicit coverage metadata. Coverage is REGIONAL, not global: absence of vessels outside the declared regions means Signalwatch has no maritime source there, not that no vessels are present. Every record carries the provider that supplied it, the provider licence, and both the provider position timestamp (when supplied) and the Signalwatch receipt time; the two are never conflated.
+ * @summary List vessel positions from free, openly licensed regional AIS sources
+ */
+export const getMonitoringMaritimeQueryLimitDefault = 400;
+export const getMonitoringMaritimeQueryLimitMax = 1000;
+
+
+
+export const GetMonitoringMaritimeQueryParams = zod.object({
+  "q": zod.coerce.string().optional().describe('Optional text filter applied to vessel name, callsign, MMSI, IMO and destination.'),
+  "provider": zod.coerce.string().optional().describe('Provider id filter, e.g. digitraffic.'),
+  "limit": zod.coerce.number().int().min(1).max(getMonitoringMaritimeQueryLimitMax).default(getMonitoringMaritimeQueryLimitDefault).describe('Maximum number of vessel records to return.')
+})
+
+export const GetMonitoringMaritimeResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "matchedCount": zod.number().int(),
+  "returnedCount": zod.number().int(),
+  "limit": zod.number().int(),
+  "coverage": zod.object({
+  "scope": zod.enum(['global', 'regional', 'local']).describe('Signalwatch maritime coverage is regional; it must not be presented as global.'),
+  "regions": zod.array(zod.string()).describe('Human-readable regions the registered providers actually cover.'),
+  "note": zod.string().describe('Plain-language statement of what the coverage does and does not include.')
+}),
+  "providers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "attribution": zod.string().describe('Attribution string required by the provider licence.'),
+  "licence": zod.string().describe('Licence short name, e.g. "CC BY 4.0" or "NLOD 2.0".'),
+  "licenceUrl": zod.string().url(),
+  "catalogueUrl": zod.string().url(),
+  "status": zod.enum(['available', 'stale', 'unavailable']).describe('Feed availability. One provider failing never removes the others.'),
+  "coverage": zod.object({
+  "scope": zod.enum(['global', 'regional', 'local']).describe('Signalwatch maritime coverage is regional; it must not be presented as global.'),
+  "regions": zod.array(zod.string()).describe('Human-readable regions the registered providers actually cover.'),
+  "note": zod.string().describe('Plain-language statement of what the coverage does and does not include.')
+}),
+  "vesselCount": zod.number().int(),
+  "checkedAt": zod.coerce.date(),
+  "lastSuccessfulFetchAt": zod.coerce.date().nullable(),
+  "message": zod.string()
+})),
+  "vessels": zod.array(zod.object({
+  "id": zod.string().describe('Stable identity, "<provider>:<mmsi>".'),
+  "provider": zod.string(),
+  "mmsi": zod.string().describe('Maritime Mobile Service Identity, as a string so leading zeros survive.'),
+  "imo": zod.string().nullable().describe('IMO number when supplied; null when the source reported 0 or omitted it.'),
+  "callSign": zod.string().nullable(),
+  "name": zod.string().nullable(),
+  "shipType": zod.number().int().nullable().describe('Raw AIS ship type code as published by the provider. Not an assessment.'),
+  "shipTypeLabel": zod.string().nullable().describe('Label for the AIS ship-type code as the provider classifies it. Providers may coarsen these codes; the label is the source\'s classification, never an inference by Signalwatch.'),
+  "latitude": zod.number(),
+  "longitude": zod.number(),
+  "courseOverGround": zod.number().nullable(),
+  "heading": zod.number().int().nullable(),
+  "speedOverGround": zod.number().nullable().describe('Speed over ground in knots.'),
+  "navigationalStatus": zod.number().int().nullable(),
+  "navigationalStatusLabel": zod.string().nullable(),
+  "destination": zod.string().nullable().describe('Free text entered by the vessel\'s crew. Reported, not verified.'),
+  "draughtMetres": zod.number().nullable(),
+  "positionTimestamp": zod.coerce.date().nullable().describe('When the provider says the position was reported. Null when the provider supplies no position time; it is never substituted with the receipt time.'),
+  "receivedAt": zod.coerce.date().describe('When the Signalwatch API server received this record from the provider.'),
+  "sourceUrl": zod.string().url(),
+  "attribution": zod.string(),
+  "licence": zod.string()
+}).describe('One normalized vessel position. Optional AIS fields are null when the source did not supply them or supplied a documented not-available sentinel (course 360, speed 102.3/102.4, heading 511, IMO 0). Nothing is inferred.'))
+})
+
+

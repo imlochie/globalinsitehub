@@ -18,9 +18,11 @@ import type {
 import type {
   GetMonitoringBriefingParams,
   GetMonitoringCamerasParams,
+  GetMonitoringMaritimeParams,
   HealthStatus,
   MonitoringBriefing,
-  MonitoringCameras
+  MonitoringCameras,
+  MonitoringVessels
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -286,6 +288,91 @@ export function useGetMonitoringCameras<TData = Awaited<ReturnType<typeof getMon
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMonitoringCamerasQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMonitoringMaritimeUrl = (params?: GetMonitoringMaritimeParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/monitoring/maritime?${stringifiedParams}` : `/api/monitoring/maritime`
+}
+
+/**
+ * Returns bounded vessel positions aggregated server-side from openly licensed regional AIS providers, plus per-provider health and explicit coverage metadata. Coverage is REGIONAL, not global: absence of vessels outside the declared regions means Signalwatch has no maritime source there, not that no vessels are present. Every record carries the provider that supplied it, the provider licence, and both the provider position timestamp (when supplied) and the Signalwatch receipt time; the two are never conflated.
+ * @summary List vessel positions from free, openly licensed regional AIS sources
+ */
+export const getMonitoringMaritime = async (params?: GetMonitoringMaritimeParams, options?: Parameters<typeof customFetch>[1]): Promise<MonitoringVessels> => {
+
+  return customFetch<MonitoringVessels>(getGetMonitoringMaritimeUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMonitoringMaritimeQueryKey = (params?: GetMonitoringMaritimeParams,) => {
+    return [
+    `/api/monitoring/maritime`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMonitoringMaritimeQueryOptions = <TData = Awaited<ReturnType<typeof getMonitoringMaritime>>, TError = ErrorType<unknown>>(params?: GetMonitoringMaritimeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringMaritime>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMonitoringMaritimeQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMonitoringMaritime>>> = ({ signal }) => getMonitoringMaritime(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMonitoringMaritime>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMonitoringMaritimeQueryResult = NonNullable<Awaited<ReturnType<typeof getMonitoringMaritime>>>
+export type GetMonitoringMaritimeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List vessel positions from free, openly licensed regional AIS sources
+ */
+
+export function useGetMonitoringMaritime<TData = Awaited<ReturnType<typeof getMonitoringMaritime>>, TError = ErrorType<unknown>>(
+ params?: GetMonitoringMaritimeParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringMaritime>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMonitoringMaritimeQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
