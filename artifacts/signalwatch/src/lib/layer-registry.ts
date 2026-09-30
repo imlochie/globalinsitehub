@@ -8,10 +8,12 @@
  *   LayerRuntimeState -> enablement / filters / selection (global-layer-provider)
  *   LayerObservations -> normalized records produced by provider adapters
  *
- * Adding a layer means adding a definition here, a provider adapter +
- * normalizer (lib/global-layers.ts and hooks/layer-sources/*), and — only when
- * the layer needs bespoke presentation — a presentation entry
- * (components/layer-presentation.tsx).
+ * Adding a layer means: a definition here, a provider adapter + normalizer
+ * (lib/global-layers.ts), a layer source module plus its single registration
+ * line in useGlobalLayerData (React hook ordering rules prevent a fully
+ * dynamic loop), and — only when the layer needs bespoke presentation — a
+ * panel builder (components/layer-panels/) and/or inspector body
+ * (components/observation-details/).
  */
 
 export type KnownLayerId =
