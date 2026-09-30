@@ -83,6 +83,25 @@ export type LayerSamplingStrategy = {
   maxMarkers: number;
 };
 
+/**
+ * How much of the world a source actually observes.
+ *
+ * Coverage is declared per provider because it is a property of the feed, not
+ * of the layer. A layer's coverage is derived from its providers by
+ * `layerCoverage()` — a layer is only `global` when every provider is global.
+ * This exists so the UI can state a limitation instead of leaving the user to
+ * infer that an empty ocean is an empty ocean.
+ */
+export type LayerCoverageScope = "global" | "regional" | "local";
+
+export type LayerCoverage = {
+  scope: LayerCoverageScope;
+  /** Human-readable regions actually observed. Empty only for global sources. */
+  regions: string[];
+  /** Short plain-language caption shown next to the layer control. */
+  note: string;
+};
+
 export type LayerProviderDefinition = {
   id: string;
   name: string;
@@ -91,6 +110,10 @@ export type LayerProviderDefinition = {
   /** Human-readable rights/attribution note surfaced in the UI. */
   attribution: string;
   catalogueUrl: string;
+  /** Licence short name, where the provider requires one to be shown. */
+  licence?: string;
+  /** What this provider actually observes. Required for operational layers. */
+  coverage?: LayerCoverage;
 };
 
 export type LayerDefinition = {
@@ -108,7 +131,48 @@ export type LayerDefinition = {
   providers: LayerProviderDefinition[];
   /** Only set where the renderer must bound marker counts. */
   sampling?: LayerSamplingStrategy;
+  /**
+   * Coverage stated at layer level. Omit to derive it from the providers;
+   * set it only when the layer's honest coverage differs from the union of
+   * its providers.
+   */
+  coverage?: LayerCoverage;
 };
+
+/**
+ * Coverage of a layer: the explicit layer-level statement when present,
+ * otherwise derived from the providers. Deriving never upgrades the scope —
+ * one regional provider makes the layer regional.
+ */
+export function layerCoverage(definition: LayerDefinition): LayerCoverage {
+  if (definition.coverage) return definition.coverage;
+  const covered = definition.providers.flatMap((provider) =>
+    provider.coverage ? [provider.coverage] : [],
+  );
+  if (covered.length === 0) {
+    return {
+      scope: "local",
+      regions: [],
+      note: "No coverage is declared for this layer.",
+    };
+  }
+  const regions = [...new Set(covered.flatMap((coverage) => coverage.regions))];
+  const scope: LayerCoverageScope = covered.every(
+    (coverage) => coverage.scope === "global",
+  )
+    ? "global"
+    : covered.some((coverage) => coverage.scope !== "local")
+      ? "regional"
+      : "local";
+  return {
+    scope,
+    regions,
+    note:
+      scope === "global"
+        ? "Worldwide coverage."
+        : `Covers ${regions.join("; ")}. Elsewhere Signalwatch has no source for this layer.`,
+  };
+}
 
 const noCapabilities: LayerCapabilities = {
   map: false,
@@ -202,6 +266,88 @@ export const publicEventLayerDefinition: LayerDefinition = {
   providers: [],
 };
 
+export const MAX_GLOBE_VESSEL_MARKERS = 220;
+
+/**
+ * Maritime is operational and deliberately REGIONAL.
+ *
+ * Both sources are free, openly licensed government feeds with no subscription,
+ * no per-request billing and no usage plan. Neither is worldwide, so the layer
+ * must never be described as global maritime tracking: outside the declared
+ * regions Signalwatch simply has no maritime source.
+ */
+export const maritimeLayerDefinition: LayerDefinition = {
+  id: "maritime",
+  label: "Maritime",
+  description:
+    "Vessel positions from free, openly licensed government AIS feeds. Regional coverage only.",
+  status: "operational",
+  category: "movement",
+  observationKind: "vessel",
+  enabledByDefault: false,
+  capabilities: {
+    map: true,
+    globe: true,
+    inspector: true,
+    search: true,
+    providerFiltering: true,
+  },
+  display: {
+    markerColor: "#5eead4",
+    markerStrokeColor: "#ccfbf1",
+    markerTextColor: "#99f6e4",
+    markerClassName:
+      "size-2 border-teal-100 bg-teal-300 shadow-[0_0_7px_rgba(94,234,212,0.55)]",
+    legendLabel: "Vessel (AIS)",
+    tooltipNote: "self-reported AIS",
+    iconKey: "ship",
+  },
+  providers: [
+    {
+      id: "digitraffic",
+      name: "Fintraffic Digitraffic",
+      countries: ["FI"],
+      attribution: "Source: Fintraffic / digitraffic.fi, license CC 4.0 BY",
+      catalogueUrl: "https://www.digitraffic.fi/en/marine-traffic/",
+      licence: "CC BY 4.0",
+      coverage: {
+        scope: "regional",
+        regions: ["Finnish waterways and the surrounding Baltic reception area"],
+        note: "Class A transponders only; fishing vessels are removed at source.",
+      },
+    },
+    {
+      id: "barentswatch",
+      name: "Kystverket / BarentsWatch",
+      countries: ["NO"],
+      attribution:
+        "Contains data from Kystverket / BarentsWatch, licensed under NLOD 2.0",
+      catalogueUrl: "https://developer.barentswatch.no/docs/AIS/live-ais-api/",
+      licence: "NLOD 2.0",
+      coverage: {
+        scope: "regional",
+        regions: [
+          "Norwegian economic zone",
+          "Svalbard and Jan Mayen protection zones",
+        ],
+        note: "Excludes fishing vessels under 15 m and leisure craft under 45 m.",
+      },
+    },
+  ],
+  coverage: {
+    scope: "regional",
+    regions: [
+      "Finnish waterways and the surrounding Baltic reception area",
+      "Norwegian economic zone",
+      "Svalbard and Jan Mayen protection zones",
+    ],
+    note:
+      "Regional coverage: Finnish and Norwegian waters only. Empty sea elsewhere " +
+      "means Signalwatch has no maritime source there, not that no vessels are present.",
+  },
+  sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_VESSEL_MARKERS },
+};
+
 function plannedLayer(
   id: KnownLayerId,
   label: string,
@@ -231,7 +377,6 @@ function plannedLayer(
 
 export const plannedLayerDefinitions: LayerDefinition[] = [
   plannedLayer("aircraft", "Aircraft", "movement", "aircraft"),
-  plannedLayer("maritime", "Maritime", "movement", "ship"),
   plannedLayer("satellites", "Satellites", "movement", "satellite"),
   plannedLayer("natural-hazards", "Natural hazards", "environment", "hazard"),
   plannedLayer("weather", "Weather", "environment", "cloud"),
@@ -298,6 +443,7 @@ export function createLayerRegistry(
 export const layerRegistry: LayerRegistry = createLayerRegistry([
   cameraLayerDefinition,
   publicEventLayerDefinition,
+  maritimeLayerDefinition,
   ...plannedLayerDefinitions,
 ]);
 

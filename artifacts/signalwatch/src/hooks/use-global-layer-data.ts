@@ -15,6 +15,10 @@ import {
   type CameraLayerSourceResult,
 } from "@/hooks/layer-sources/camera-layer-source";
 import {
+  useMaritimeLayerSource,
+  type MaritimeLayerSourceResult,
+} from "@/hooks/layer-sources/maritime-layer-source";
+import {
   usePublicEventLayerSource,
   type PublicEventLayerSourceResult,
 } from "@/hooks/layer-sources/public-event-layer-source";
@@ -64,9 +68,14 @@ export function useGlobalLayerData() {
       state: layerState,
     });
 
+  const maritimeSource: MaritimeLayerSourceResult = useMaritimeLayerSource({
+    enabled: layerState.isLayerEnabled("maritime"),
+    state: layerState,
+  });
+
   const sources = useMemo<LayerSourceResult<GlobalObservation>[]>(
-    () => [cameraSource, publicEventSource],
-    [cameraSource, publicEventSource],
+    () => [cameraSource, publicEventSource, maritimeSource],
+    [cameraSource, publicEventSource, maritimeSource],
   );
 
   const { observations, statusByLayer } = useMemo(
@@ -122,6 +131,7 @@ export function useGlobalLayerData() {
 
     // Layer-specific surfaces (lists, counters) consume their own source.
     cameraCatalogue: cameraSource.catalogue,
+    vesselFeed: maritimeSource.feed,
     briefing,
     briefingLoading: publicEventSource.status.isLoading,
     briefingFetching: publicEventSource.status.isFetching,

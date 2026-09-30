@@ -7,9 +7,14 @@ import React from 'react';
  * newly registered layer is inspectable before it has bespoke presentation.
  */
 import type { BaseObservation } from '@/lib/global-layers';
-import { isCameraObservation, isPublicEventObservation } from '@/lib/global-layers';
+import {
+  isCameraObservation,
+  isMaritimeObservation,
+  isPublicEventObservation,
+} from '@/lib/global-layers';
 import { CameraObservationDetails } from './camera-observation-details';
 import { PublicEventObservationDetails } from './public-event-observation-details';
+import { MaritimeObservationDetails } from './maritime-observation-details';
 import { GenericObservationDetails } from './generic-observation-details';
 
 export function ObservationDetails({
@@ -19,6 +24,9 @@ export function ObservationDetails({
 }) {
   if (isCameraObservation(observation)) {
     return <CameraObservationDetails observation={observation} />;
+  }
+  if (isMaritimeObservation(observation)) {
+    return <MaritimeObservationDetails observation={observation} />;
   }
   if (isPublicEventObservation(observation)) {
     return <PublicEventObservationDetails observation={observation} />;

@@ -7,10 +7,12 @@
  */
 import type { useGlobalLayerData } from '@/hooks/use-global-layer-data';
 import { cameraLayerPanel } from './camera-layer-panel';
+import { maritimeLayerPanel } from './maritime-layer-panel';
 import { publicEventLayerPanel } from './public-event-layer-panel';
 import type { LayerPanelModel } from './types';
 
 export { cameraLayerPanel } from './camera-layer-panel';
+export { maritimeLayerPanel } from './maritime-layer-panel';
 export { publicEventLayerPanel } from './public-event-layer-panel';
 export type { LayerPanelModel, LayerPanelMetric, StatusTone } from './types';
 
@@ -60,6 +62,28 @@ export function buildLayerPanels(layerData: LayerData): LayerPanelModel[] {
         sourcesOnline: layerData.sourcesOnline,
         sourceCount: layerData.sourceCount,
         generatedAt: layerData.briefingGeneratedAt,
+      }),
+    );
+  }
+
+  if (registry.has('maritime')) {
+    panels.push(
+      maritimeLayerPanel({
+        definition: registry.require('maritime'),
+        enabled: layerData.isLayerEnabled('maritime'),
+        onEnabledChange: (enabled) => layerData.setLayerEnabled('maritime', enabled),
+        provider: layerData.maritimeFilters.provider,
+        onProviderChange: layerData.setMaritimeProvider,
+        search: layerData.maritimeFilters.search,
+        onSearchChange: layerData.setMaritimeSearch,
+        providers: layerData.vesselFeed.providers,
+        matchedCount: layerData.vesselFeed.matchedCount,
+        returnedCount: layerData.vesselFeed.returnedCount,
+        isLoading: layerData.vesselFeed.isLoading,
+        isFetching: layerData.vesselFeed.isFetching,
+        hasError: layerData.vesselFeed.hasError,
+        isUnavailable: layerData.vesselFeed.isUnavailable,
+        isTruncated: layerData.vesselFeed.isTruncated,
       }),
     );
   }

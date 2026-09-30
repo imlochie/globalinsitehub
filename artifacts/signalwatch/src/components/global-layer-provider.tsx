@@ -37,6 +37,13 @@ export type CameraLayerFilters = {
   debouncedSearch: string;
 };
 
+export type MaritimeLayerFilters = {
+  /** Provider id, or "all". Maritime coverage is regional per provider. */
+  provider: string;
+  search: string;
+  debouncedSearch: string;
+};
+
 export type GlobalLayerContextValue = {
   registry: LayerRegistry;
   enabledLayers: LayerEnablement;
@@ -46,6 +53,9 @@ export type GlobalLayerContextValue = {
   setCameraCountry: (country: CameraCountry) => void;
   setCameraProvider: (provider: CameraProviderSelection) => void;
   setCameraSearch: (search: string) => void;
+  maritimeFilters: MaritimeLayerFilters;
+  setMaritimeProvider: (provider: string) => void;
+  setMaritimeSearch: (search: string) => void;
   selectedObservation: ObservationIdentity | null;
   selectObservation: (observation: ObservationIdentity) => void;
   clearSelectedObservation: () => void;
@@ -69,6 +79,9 @@ export function GlobalLayerProvider({
     useState<CameraProviderSelection>("all");
   const [cameraSearch, setCameraSearch] = useState("");
   const [debouncedCameraSearch, setDebouncedCameraSearch] = useState("");
+  const [maritimeProvider, setMaritimeProviderState] = useState<string>("all");
+  const [maritimeSearch, setMaritimeSearch] = useState("");
+  const [debouncedMaritimeSearch, setDebouncedMaritimeSearch] = useState("");
   const [selectedObservation, setSelectedObservation] =
     useState<ObservationIdentity | null>(null);
 
@@ -79,6 +92,14 @@ export function GlobalLayerProvider({
     );
     return () => window.clearTimeout(timer);
   }, [cameraSearch]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setDebouncedMaritimeSearch(maritimeSearch),
+      250,
+    );
+    return () => window.clearTimeout(timer);
+  }, [maritimeSearch]);
 
   const setLayerEnabled = useCallback(
     (layerId: LayerId, enabled: boolean) => {
@@ -115,6 +136,13 @@ export function GlobalLayerProvider({
     [],
   );
 
+  const setMaritimeProvider = useCallback((provider: string) => {
+    setMaritimeProviderState(provider);
+    setSelectedObservation((selected) =>
+      clearLayerSelection(selected, "maritime"),
+    );
+  }, []);
+
   const selectObservation = useCallback(
     (observation: ObservationIdentity) => {
       setSelectedObservation(observation);
@@ -136,6 +164,15 @@ export function GlobalLayerProvider({
     [cameraCountry, cameraProvider, cameraSearch, debouncedCameraSearch],
   );
 
+  const maritimeFilters = useMemo<MaritimeLayerFilters>(
+    () => ({
+      provider: maritimeProvider,
+      search: maritimeSearch,
+      debouncedSearch: debouncedMaritimeSearch,
+    }),
+    [maritimeProvider, maritimeSearch, debouncedMaritimeSearch],
+  );
+
   const value = useMemo<GlobalLayerContextValue>(
     () => ({
       registry,
@@ -146,6 +183,9 @@ export function GlobalLayerProvider({
       setCameraCountry,
       setCameraProvider,
       setCameraSearch,
+      maritimeFilters,
+      setMaritimeProvider,
+      setMaritimeSearch,
       selectedObservation,
       selectObservation,
       clearSelectedObservation,
@@ -158,6 +198,8 @@ export function GlobalLayerProvider({
       cameraFilters,
       setCameraCountry,
       setCameraProvider,
+      maritimeFilters,
+      setMaritimeProvider,
       selectedObservation,
       selectObservation,
       clearSelectedObservation,
