@@ -21,6 +21,21 @@ claim that would require a live request is marked `UNRESOLVED`. Prior live probe
 
 > ### CONDITIONAL — not cleared for implementation.
 
+**The decision criterion, restated.** This gate is not "which provider is best?". The candidates are not
+three APIs with different shapes; they are **three different reciprocity architectures**. The question is:
+
+> **Which provider gives Signalwatch a defensible combination of permission, reciprocity, deployment
+> topology, and freshness semantics?**
+
+| | Permission | Reciprocity | Deployment | Architecture |
+|---|---|---|---|---|
+| **ADSB.lol** | ASK — free and ODbL, application unclassified | optional now, feeder key later | easy | poll → cache |
+| **ADSB IQ** | documented but self-contradictory | feed to unlock | open question: feeder IP vs cloud IP | poll / WebSocket → cache |
+| **ADSBHub** | explicit, for the aggregated data | must feed ≥ 1 station | feed receiver + cloud TCP allowlist | persistent stream → rolling state |
+
+All four columns must hold. A provider with perfect permission and an impossible deployment topology is not a
+candidate; nor is one with a perfect API and unresolved rights.
+
 **Exact reason:** every provider re-examined either (a) forbids the intended use outright under its current
 published terms, or (b) permits it only after a specific non-engineering action by a human — an operator
 approval email, a paid subscription, or a written licence. No provider examined grants, under terms readable
@@ -72,6 +87,18 @@ distinct from operational layers.
   grant covering personal, research and commercial projects short of republishing the feed in its entirety —
   subject to two unresolved contradictions between its docs and its Terms. The remaining blocker is three
   emails and possibly one ~$30–50 receiver, not a subscription.
+  **Scope caveat on ADSBHub:** its site-wide disclaimer (`adsbhub.org/disclaimer.php`, governed by Bulgarian
+  law) contains standard site-content language — "YOU MAY NOT MODIFY, COPY, REPRODUCE, REPUBLISH, UPLOAD,
+  POST, TRANSMIT, OR DISTRIBUTE, IN ANY MANNER, THE MATERIAL ON THE SITE, INCLUDING TEXT, GRAPHICS, CODE
+  AND/OR SOFTWARE." Read together with the data-access page, this is a scope distinction rather than a
+  contradiction: the disclaimer governs the *website's* material, the data-access page governs the
+  *aggregated ADS-B data*. Any implementation must rely strictly on the data-access permission and must not
+  copy or redistribute ADSBHub's site assets, UI, code or text. Worth confirming in passing, not a blocker.
+- `research/provider-clarification-requests.md` — three prepared, **unsent** clarification requests, one per
+  free path, each built around a single near-binary question: may Signalwatch publicly display normalized
+  cached ADSB.lol data and at what cadence; does an ADSB IQ feeder key authorize a cloud IP or is access
+  bound to the receiver's IP; and can an ADSBHub account allowlist a cloud server's IP alongside its home
+  feeder. Three answers, no money, and most of the remaining uncertainty collapses.
 
 ---
 
@@ -219,6 +246,19 @@ flourish.
 - Flight routes, origin/destination, operator. Not supplied by the position API; the community route sources
   carry their own separate restrictions.
 - Trails/history. Requires retention, which is exactly the ODbL Derivative Database question that is unresolved.
+
+**If the chosen path is a stream (ADSBHub), the freshness model gets simpler, not harder.** SBS/30003
+carries no provider-supplied age field, so there is nothing ambiguous to reinterpret. The contract becomes:
+
+```
+receivedAt  = when our server received this message
+lastSeen    = latest message received for this aircraft
+staleAfter  = an explicit configured threshold
+```
+
+An aircraft is either fresh enough to display or it disappears. No provider-defined `seen_pos` semantics to
+guess at, and no possibility of presenting an old packet as live — which is the behaviour this project wants
+anyway.
 
 **Presentation rule:** every aircraft observation surfaces its `staleSeconds`/`observedAt`, and the layer carries
 the provider attribution string mandated by that provider's licence. An aircraft older than the configured
