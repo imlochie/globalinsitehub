@@ -1,13 +1,14 @@
 import { type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { GlobalLayerProvider } from '@/components/global-layer-provider';
 import { SignalShell } from '@/components/shell';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import EventMapPage from '@/pages/event-map';
 import NotFound from '@/pages/not-found';
-import MonitoringPage from '@/pages/monitoring';
+import EventMapPage from '@/pages/event-map';
 import SourcesPage from '@/pages/sources';
+import SectorsPage from '@/pages/sectors';
 import {
   Route,
   Switch,
@@ -24,14 +25,19 @@ function Router() {
     <RoutedErrorBoundary>
       <SignalShell>
         <Switch>
-          <Route path="/" component={MonitoringPage} />
+          <Route path="/" component={WorkspaceSectorEntry} />
           <Route path="/map" component={EventMapPage} />
+          <Route path="/sectors" component={() => <SectorsPage />} />
           <Route path="/sources" component={SourcesPage} />
           <Route component={NotFound} />
         </Switch>
       </SignalShell>
     </RoutedErrorBoundary>
   );
+}
+
+function WorkspaceSectorEntry() {
+  return <SectorsPage initialView="workspace" />;
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {
@@ -42,12 +48,14 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <GlobalLayerProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </GlobalLayerProvider>
     </QueryClientProvider>
   );
 }

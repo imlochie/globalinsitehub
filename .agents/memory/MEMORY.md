@@ -1,0 +1,9 @@
+- [Public news providers](public-news-providers.md) — GDELT demo requests returned HTTP 429; directly queried publisher RSS feeds were working.
+- [Expo devtools on Nix](expo-devtools-nix.md) — Missing libglib can block React Native DevTools installation while Expo's Metro server still runs.
+- [Empty GitHub repositories](github-empty-repo-imports.md) — Bootstrap Git Database writes with a source-backed Contents API commit; verify blob entries separately from recursive tree directories.
+- [CDP click simulation](cdp-click-simulation.md) — Include `clickCount: 1` on DevTools mouse events; down/up alone may not emit a click.
+- [Event map basemaps](event-map-basemaps.md) — CARTO dark tiles returned “API KEY REQUIRED”; standard OSM tiles rendered with a CSS dark filter.
+- [Leaf workspace package installs](workspace-package-installs.md) — If the package helper targets the root, use a package-filtered pnpm command instead of adding app dependencies at the workspace root.
+- [Global-layer display boundaries](global-layer-display-boundaries.md) — Globe points stay capped and provider-balanced; selected cameras remain visible, while the detailed map/list exposes the bounded catalogue.
+- [Airplanes.live access gate](airplanes-live-access.md) — Official docs and a geographic API request returned access blocks; verify provider approval before implementing, and do not bypass them.
+- [Aircraft provider evidence gates](aircraft-provider-evidence.md) — Separate API reachability, approved production access, and public-display rights before selecting a source.

@@ -1,15 +1,14 @@
-import { ArrowUpRight, Clock3, ExternalLink, Filter, ImageOff, Layers3, ListFilter, MapPinned, Radio, Search, Signal, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Clock3, ExternalLink, ImageOff, Layers3, ListFilter, Radio, Search, Signal, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'wouter';
 import { BriefingError, BriefingLoading, EmptyState, InlineUpdating } from '@/components/briefing-states';
-import { SignalMap } from '@/components/map-panel';
 import { SourceStatus } from '@/components/source-status';
 import { useBriefing } from '@/hooks/use-briefing';
-import { displayLanguage, formatAbsoluteTime, formatRelativeTime, type BriefingEvent, type BriefingHeadline, type BriefingSource } from '@/lib/monitoring';
+import { displayLanguage, formatAbsoluteTime, formatRelativeTime, type BriefingHeadline, type BriefingSource } from '@/lib/monitoring';
 
 const liveChannels = [
   { name: 'BBC World Service', mark: 'BBC', detail: 'Global radio', url: 'https://www.bbc.co.uk/worldserviceradio' },
-  { name: 'DW News', mark: 'DW', detail: 'International video', url: 'https://www.dw.com/en/live-tv/s-100825' },
+  { name: 'DW News', mark: 'DW', detail: 'International video', url: 'https://www.youtube.com/channel/UCknLrEdhRCp1aegomQRaCZg/live' },
   { name: 'FRANCE 24', mark: 'F24', detail: 'Continuous news', url: 'https://www.france24.com/en/live' },
   { name: 'Al Jazeera English', mark: 'AJ', detail: 'Global live TV', url: 'https://www.aljazeera.com/live' },
 ];
@@ -17,7 +16,6 @@ const liveChannels = [
 export default function MonitoringPage() {
   const { briefing, isLoading, isError, isFetching, refetch } = useBriefing(40);
   const [search, setSearch] = useState('');
-  const [showOnlyLocated, setShowOnlyLocated] = useState(false);
   useEffect(() => { document.title = 'Workspace — Signalwatch'; }, []);
 
   const filteredHeadlines = useMemo(() => {
@@ -25,15 +23,6 @@ export default function MonitoringPage() {
     if (!briefing) return [];
     return briefing.headlines.filter((headline: BriefingHeadline) => !normalized || [headline.title, headline.source, headline.summary, headline.language].join(' ').toLowerCase().includes(normalized));
   }, [briefing, search]);
-  const filteredEvents = useMemo(() => {
-    const normalized = search.trim().toLowerCase();
-    if (!briefing) return [];
-    return briefing.events.filter((event: BriefingEvent) => {
-      const matchesText = !normalized || [event.title, event.source, event.category, event.detail].join(' ').toLowerCase().includes(normalized);
-      return matchesText && (!showOnlyLocated || (event.latitude !== null && event.longitude !== null));
-    });
-  }, [briefing, search, showOnlyLocated]);
-
   return (
     <div className="signal-rise mx-auto max-w-[1500px] px-4 pb-12 sm:px-6 lg:px-9">
       <section className="flex flex-col gap-5 border-b border-border py-7 sm:flex-row sm:items-end sm:justify-between">
@@ -124,29 +113,6 @@ export default function MonitoringPage() {
             </aside>
           </section>
 
-          <section className="mt-10 border-t border-border pt-8">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold tracking-tight">Event field</h2>
-                  <MapPinned className="size-4 text-muted-foreground" />
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">Geolocated events from the same public briefing.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setShowOnlyLocated(!showOnlyLocated)} data-testid="button-toggle-located-events" className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-colors ${showOnlyLocated ? 'border-foreground/40 bg-foreground text-background' : 'border-border bg-card hover:bg-muted'}`}>
-                  <Filter className="size-3.5" /> {showOnlyLocated ? 'Located only' : 'All events'}
-                </button>
-                <Link href="/map" data-testid="link-open-event-map" className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90">Open map <ArrowUpRight className="size-3.5" /></Link>
-              </div>
-            </div>
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <SignalMap events={filteredEvents} compact />
-              <div className="space-y-2">
-                {filteredEvents.length === 0 ? <EmptyState title="No events to plot" detail={search ? 'No event matches the current filter.' : 'No geolocated event records were returned.'} /> : filteredEvents.slice(0, 4).map((event: BriefingEvent) => <EventMini key={event.id} event={event} />)}
-              </div>
-            </div>
-          </section>
           <ProviderNotice />
         </>
       )}
@@ -155,7 +121,7 @@ export default function MonitoringPage() {
 }
 
 function Metric({ label, value, detail, accent = false, text = false }: { label: string; value: number | string; detail: string; accent?: boolean; text?: boolean }) {
-  return <div className={`bg-card px-4 py-4 sm:px-5 ${accent ? 'relative overflow-hidden' : ''}`} data-testid={`metric-${label.toLowerCase().replaceAll(' ', '-')}`}><div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div><div className={`mt-2 text-2xl font-semibold tracking-tight ${accent ? 'text-emerald-700' : ''}`}>{text ? value : value.toLocaleString()}</div><div className="mt-1 text-[10px] text-muted-foreground">{detail}</div>{accent && <Sparkles className="absolute -right-1 -top-1 size-14 text-emerald-700/5" />}</div>;
+  return <div className={`bg-card px-4 py-4 sm:px-5 ${accent ? 'relative overflow-hidden' : ''}`} data-testid={`metric-${label.toLowerCase().replaceAll(' ', '-')}`}><div className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div><div className={`mt-2 text-2xl font-semibold tracking-tight ${accent ? 'text-emerald-700 dark:text-emerald-300' : ''}`}>{text ? value : value.toLocaleString()}</div><div className="mt-1 text-[10px] text-muted-foreground">{detail}</div>{accent && <Sparkles className="absolute -right-1 -top-1 size-14 text-emerald-700/5 dark:text-emerald-300/5" />}</div>;
 }
 
 function HeadlineRow({ headline }: { headline: BriefingHeadline }) {
@@ -172,10 +138,6 @@ function HeadlineRow({ headline }: { headline: BriefingHeadline }) {
       </div>
     </article>
   );
-}
-
-function EventMini({ event }: { event: BriefingEvent }) {
-  return <a href={event.url} target="_blank" rel="noreferrer" data-testid={`event-mini-${event.id}`} className="group block rounded-lg border border-border bg-card p-3 transition-colors hover:border-foreground/30"><div className="flex items-center justify-between gap-2"><span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{event.category}</span><span className="text-[10px] text-muted-foreground">{formatRelativeTime(event.occurredAt)}</span></div><div className="mt-2 text-xs font-semibold leading-4">{event.title}</div><div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground"><span>{event.source}</span><ArrowUpRight className="size-3 opacity-0 transition-opacity group-hover:opacity-70" /></div></a>;
 }
 
 function ProviderNotice() {

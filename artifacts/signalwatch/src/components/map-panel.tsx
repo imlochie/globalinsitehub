@@ -1,54 +1,381 @@
-import { Crosshair, MapPinned, Navigation, RadioTower } from 'lucide-react';
-import type { BriefingEvent } from '@/lib/monitoring';
-import { eventPoint } from '@/lib/monitoring';
+import L from "leaflet";
+import { useEffect, useMemo, useRef } from "react";
+import type { CameraRecord } from "@workspace/api-client-react";
+import type { BriefingEvent } from "@/lib/monitoring";
+import "leaflet/dist/leaflet.css";
+import "./map-panel.css";
 
-export function SignalMap({ events, compact = false }: { events: BriefingEvent[]; compact?: boolean }) {
-  const locatedEvents = events.filter((event) => event.latitude !== null && event.longitude !== null);
-  return (
-    <div className={`relative overflow-hidden rounded-xl border border-border bg-[#dfe4df] ${compact ? 'h-[260px]' : 'h-[500px]'}`} data-testid="map-signal-canvas">
-      <div className="absolute inset-0 signal-grid opacity-50" />
-      <div className="absolute inset-[9%_5%] rounded-[42%_55%_48%_52%] border border-[#b3c1ba]/80 bg-[#d3dcd5]/60 [clip-path:polygon(0_18%,12%_10%,18%_18%,31%_13%,38%_24%,47%_19%,54%_8%,69%_13%,75%_27%,91%_24%,100%_37%,92%_47%,95%_61%,79%_68%,72%_82%,58%_77%,49%_90%,36%_81%,23%_91%,14%_75%,3%_72%,9%_52%,0_42%)]" />
-      <div className="absolute inset-x-0 top-1/2 border-t border-[#aab8b1]/60" />
-      <div className="absolute inset-y-0 left-1/2 border-l border-[#aab8b1]/60" />
-      <div className="absolute left-4 top-4 rounded-md border border-[#b7c2ba] bg-[#edf1ed]/85 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.15em] text-[#5b6b63]">live event layer</div>
-      <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-md border border-[#b7c2ba] bg-[#edf1ed]/85 px-2 py-1.5 text-[10px] text-[#53645c]">
-        <Navigation className="size-3" /> coordinates from source
-      </div>
-      {locatedEvents.map((event) => {
-        const point = eventPoint(event.latitude, event.longitude);
-        if (!point) return null;
-        return (
-          <a
-            key={event.id}
-            href={event.url}
-            target="_blank"
-            rel="noreferrer"
-            data-testid={`map-event-${event.id}`}
-            title={`${event.title} — ${event.source}`}
-            className="group absolute z-10 -translate-x-1/2 -translate-y-1/2"
-            style={point}
-          >
-            <span className="absolute -inset-2 animate-ping rounded-full bg-[#d15842]/30" />
-            <span className="relative block size-3 rounded-full border-2 border-[#f9f5eb] bg-[#bf4e3b] shadow-sm transition-transform group-hover:scale-150" />
-          </a>
-        );
-      })}
-      {locatedEvents.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="max-w-[220px] text-center">
-            <MapPinned className="mx-auto size-5 text-[#73827a]" />
-            <p className="mt-2 text-xs font-medium text-[#53645c]">No geolocated events in the current briefing</p>
-          </div>
-        </div>
-      )}
-      <div className="absolute right-3 top-3 flex items-center gap-1.5 rounded-md border border-[#b7c2ba] bg-[#edf1ed]/85 px-2 py-1 font-mono text-[9px] text-[#53645c]">
-        <RadioTower className="size-3" /> {locatedEvents.length} plotted
-      </div>
-      {!compact && (
-        <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-md border border-[#b7c2ba] bg-[#edf1ed]/85 px-2 py-1 font-mono text-[9px] text-[#53645c]">
-          <Crosshair className="size-3" /> WGS84
-        </div>
-      )}
-    </div>
+const OPENSTREETMAP_TILES =
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const EMPTY_CAMERAS: CameraRecord[] = [];
+
+type SignalMapProps = {
+  events: BriefingEvent[];
+  cameras?: CameraRecord[];
+  selectedCameraId?: string;
+  selectedEventId?: string;
+  onSelectCamera?: (cameraId: string) => void;
+  onSelectEvent?: (eventId: string) => void;
+  compact?: boolean;
+  fillContainer?: boolean;
+  loading?: boolean;
+  error?: boolean;
+};
+
+export function SignalMap({
+  events,
+  cameras = EMPTY_CAMERAS,
+  selectedCameraId,
+  selectedEventId,
+  onSelectCamera,
+  onSelectEvent,
+  compact = false,
+  fillContainer = false,
+  loading = false,
+  error = false,
+}: SignalMapProps) {
+  const mapElementRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const onSelectCameraRef = useRef(onSelectCamera);
+  const onSelectEventRef = useRef(onSelectEvent);
+  const locatedEvents = useMemo(
+    () =>
+      events.filter(
+        (event) => getCoordinates(event.latitude, event.longitude) !== null,
+      ),
+    [events],
   );
+  const locatedCameras = useMemo(
+    () =>
+      cameras.filter((camera) =>
+        getCoordinates(camera.latitude, camera.longitude),
+      ),
+    [cameras],
+  );
+
+  useEffect(() => {
+    onSelectCameraRef.current = onSelectCamera;
+  }, [onSelectCamera]);
+
+  useEffect(() => {
+    onSelectEventRef.current = onSelectEvent;
+  }, [onSelectEvent]);
+
+  useEffect(() => {
+    const element = mapElementRef.current;
+    if (!element) return;
+
+    const map = L.map(element, {
+      center: [18, 0],
+      zoom: 2,
+      minZoom: 2,
+      maxZoom: 18,
+      zoomControl: false,
+      preferCanvas: true,
+      worldCopyJump: true,
+      keyboard: true,
+    });
+    mapRef.current = map;
+    map.attributionControl.setPrefix(false);
+
+    L.tileLayer(OPENSTREETMAP_TILES, {
+      subdomains: ["a", "b", "c"],
+      maxZoom: 19,
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>',
+    }).addTo(map);
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+
+    const resizeFrame = window.requestAnimationFrame(() => {
+      map.invalidateSize({ pan: false });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(resizeFrame);
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const layer = L.layerGroup().addTo(map);
+
+    for (const event of locatedEvents) {
+      const coordinates = getCoordinates(event.latitude, event.longitude);
+      if (!coordinates) continue;
+      const selected = event.id === selectedEventId;
+      const marker = L.circleMarker(coordinates, {
+          radius: selected ? 8 : 6,
+          color: selected ? "#ffffff" : "#091219",
+          weight: selected ? 2.5 : 2,
+          fillColor: selected ? "#fff4cf" : "#f1c477",
+          fillOpacity: 0.96,
+          bubblingMouseEvents: false,
+        });
+      marker
+        .bindTooltip(event.title, {
+          direction: "top",
+          offset: [0, -6],
+          opacity: 0.96,
+        })
+        .bindPopup(
+          createEventPopup(event, selected, () =>
+            onSelectEventRef.current?.(event.id),
+          ),
+          { maxWidth: 280 },
+        )
+        .addTo(layer);
+    }
+
+    for (const camera of locatedCameras) {
+      const coordinates = getCoordinates(camera.latitude, camera.longitude);
+      if (!coordinates) continue;
+      const selected = camera.id === selectedCameraId;
+      const marker = L.circleMarker(coordinates, {
+          radius: selected ? 7 : 5,
+          color: selected ? "#fff0bd" : "#07151c",
+          weight: selected ? 2 : 1.5,
+          fillColor: selected ? "#f1c477" : "#6cd4dc",
+          fillOpacity: 0.94,
+          bubblingMouseEvents: false,
+        });
+      marker
+        .bindTooltip(camera.displayName, {
+          direction: "top",
+          offset: [0, -6],
+          opacity: 0.96,
+        })
+        .bindPopup(
+          createCameraPopup(camera, selected, () =>
+            onSelectCameraRef.current?.(camera.id),
+          ),
+          { maxWidth: 280 },
+        )
+        .addTo(layer);
+    }
+
+    return () => {
+      layer.remove();
+    };
+  }, [locatedCameras, locatedEvents, selectedCameraId, selectedEventId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const selected = locatedCameras.find(
+      (camera) => camera.id === selectedCameraId,
+    );
+    if (!selected) return;
+    const coordinates = getCoordinates(selected.latitude, selected.longitude);
+    if (!coordinates) return;
+    map.flyTo(coordinates, Math.max(map.getZoom(), 6), { duration: 0.55 });
+  }, [locatedCameras, selectedCameraId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const selected = locatedEvents.find((event) => event.id === selectedEventId);
+    if (!selected) return;
+    const coordinates = getCoordinates(selected.latitude, selected.longitude);
+    if (!coordinates) return;
+    map.flyTo(coordinates, Math.max(map.getZoom(), 6), { duration: 0.55 });
+  }, [locatedEvents, selectedEventId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const frame = window.requestAnimationFrame(() => {
+      map.invalidateSize({ pan: false });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [compact]);
+
+  return (
+    <section
+      className={`signal-map relative isolate overflow-hidden rounded-xl border border-white/10 bg-[#081018] ${
+        fillContainer
+          ? "h-full w-full rounded-none border-0"
+          : compact
+            ? "h-[260px]"
+            : "h-[440px] sm:h-[520px]"
+      }`}
+      aria-label="Interactive event and camera map"
+      data-testid="signal-map"
+    >
+      <div
+        ref={mapElementRef}
+        className="absolute inset-0"
+        aria-label="Dark OpenStreetMap basemap. Drag to pan and use the plus and minus controls or scroll to zoom."
+      />
+
+      <div className="pointer-events-none absolute left-3 top-3 z-[500] flex max-w-[calc(100%-24px)] flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-[#071019]/90 px-3 py-2 text-[9px] text-slate-200 shadow-lg backdrop-blur">
+        <span className="font-mono uppercase tracking-[0.14em] text-slate-100">
+          Source coordinates
+        </span>
+        <span className="text-slate-500">·</span>
+        <span>{locatedEvents.length} located events</span>
+        {locatedCameras.length > 0 && (
+          <>
+            <span className="text-slate-500">·</span>
+            <span>{locatedCameras.length} cameras</span>
+          </>
+        )}
+      </div>
+
+      <div className="pointer-events-none absolute bottom-3 left-3 z-[500] flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/10 bg-[#071019]/90 px-3 py-2 font-mono text-[8px] uppercase tracking-[0.1em] text-slate-300 shadow-lg backdrop-blur">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-amber-300" />
+          Events
+        </span>
+        {locatedCameras.length > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-cyan-300" />
+            Cameras
+          </span>
+        )}
+        <span className="hidden text-slate-500 sm:inline">
+          Drag to pan · scroll or controls to zoom
+        </span>
+      </div>
+
+      {loading && locatedEvents.length === 0 && locatedCameras.length === 0 && (
+        <div className="pointer-events-none absolute inset-x-3 top-1/2 z-[500] -translate-y-1/2 text-center">
+          <span className="rounded-md border border-white/10 bg-[#071019]/90 px-3 py-2 text-xs text-slate-300 shadow-lg">
+            Loading source event coordinates…
+          </span>
+        </div>
+      )}
+      {error && locatedEvents.length === 0 && locatedCameras.length === 0 && (
+        <div className="pointer-events-none absolute inset-x-3 top-1/2 z-[500] -translate-y-1/2 text-center">
+          <span className="rounded-md border border-white/10 bg-[#071019]/90 px-3 py-2 text-xs text-slate-300 shadow-lg">
+            Event coordinates are temporarily unavailable
+          </span>
+        </div>
+      )}
+      {!loading &&
+        !error &&
+        locatedEvents.length === 0 &&
+        locatedCameras.length === 0 && (
+        <div className="pointer-events-none absolute inset-x-3 top-1/2 z-[500] -translate-y-1/2 text-center">
+          <span className="rounded-md border border-white/10 bg-[#071019]/90 px-3 py-2 text-xs text-slate-300 shadow-lg">
+            No records with valid source coordinates in this view
+          </span>
+        </div>
+        )}
+    </section>
+  );
+}
+
+function getCoordinates(
+  latitude: number | null | undefined,
+  longitude: number | null | undefined,
+): [number, number] | null {
+  if (
+    typeof latitude === "number" &&
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    typeof longitude === "number" &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180
+  ) {
+    return [latitude, longitude];
+  }
+  return null;
+}
+
+function createEventPopup(
+  event: BriefingEvent,
+  selected: boolean,
+  onSelect: () => void,
+) {
+  const container = document.createElement("div");
+  container.className = "signal-map-popup";
+
+  const category = document.createElement("div");
+  category.className = "signal-map-popup-kicker";
+  category.textContent = event.category || "Event";
+
+  const title = document.createElement("div");
+  title.className = "signal-map-popup-title";
+  title.textContent = event.title;
+
+  const source = document.createElement("div");
+  source.className = "signal-map-popup-meta";
+  source.textContent = event.source;
+
+  container.append(category, title, source);
+
+  const button = document.createElement("button");
+  button.className = "signal-map-popup-button";
+  button.type = "button";
+  button.textContent = selected ? "Selected public event" : "Inspect event";
+  button.disabled = selected;
+  button.addEventListener("click", onSelect);
+  container.append(button);
+
+  if (event.detail) {
+    const detail = document.createElement("p");
+    detail.className = "signal-map-popup-detail";
+    detail.textContent = event.detail;
+    container.append(detail);
+  }
+
+  const sourceUrl = safeHttpUrl(event.url);
+  if (sourceUrl) {
+    const link = document.createElement("a");
+    link.className = "signal-map-popup-link";
+    link.href = sourceUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open source";
+    container.append(link);
+  }
+
+  return container;
+}
+
+function createCameraPopup(
+  camera: CameraRecord,
+  selected: boolean,
+  onSelect: () => void,
+) {
+  const container = document.createElement("div");
+  container.className = "signal-map-popup";
+
+  const title = document.createElement("div");
+  title.className = "signal-map-popup-title";
+  title.textContent = camera.displayName;
+  container.append(title);
+
+  const location = document.createElement("div");
+  location.className = "signal-map-popup-meta";
+  location.textContent = [camera.locality, camera.region, camera.countryCode]
+    .filter(Boolean)
+    .join(", ");
+  container.append(location);
+
+  const button = document.createElement("button");
+  button.className = "signal-map-popup-button";
+  button.type = "button";
+  button.textContent = selected ? "Selected camera" : "View camera details";
+  button.disabled = selected;
+  button.addEventListener("click", onSelect);
+  container.append(button);
+
+  return container;
+}
+
+function safeHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:"
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
 }

@@ -1,0 +1,266 @@
+{
+  "research_date": "2026-09-30",
+  "sources": [
+    {
+      "key": "adsblol-openapi",
+      "title": "ADSB.lol API OpenAPI specification",
+      "url": "https://api.adsb.lol/api/openapi.json",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsblol-verify-access-01-openapi.md"
+    },
+    {
+      "key": "adsblol-api-docs",
+      "title": "ADSB.lol Open Data API documentation",
+      "url": "https://www.adsb.lol/docs/open-data/api/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsblol-verify-access-02-docs.md"
+    },
+    {
+      "key": "adsblol-live-point-query",
+      "title": "ADSB.lol live point-query endpoint",
+      "url": "https://api.adsb.lol/v2/point/51.5/-0.1/10",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsblol-verify-access-04-live-point.md"
+    },
+    {
+      "key": "adsblol-privacy-license",
+      "title": "ADSB.lol Privacy and License",
+      "url": "https://www.adsb.lol/privacy-license/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsblol-verify-license-01-privacy-license.md"
+    },
+    {
+      "key": "odbl-summary",
+      "title": "Open Data Commons Open Database License (ODbL) Summary",
+      "url": "https://opendatacommons.org/licenses/odbl/summary/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 1",
+      "evidence_path": "research/sources/adsblol-verify-license-03-odbl-clauses.md"
+    },
+    {
+      "key": "odbl-full-license",
+      "title": "Open Data Commons Open Database License (ODbL) v1.0",
+      "url": "https://opendatacommons.org/licenses/odbl/1-0/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 1",
+      "evidence_path": "research/sources/adsblol-verify-license-03-odbl-clauses.md"
+    },
+    {
+      "key": "airplanes-live-api-root",
+      "title": "Airplanes.live production API base",
+      "url": "https://api.airplanes.live/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/airplanes-live-04-api-root.md"
+    },
+    {
+      "key": "airplanes-live-api-docs",
+      "title": "Airplanes.live API Documentation",
+      "url": "https://airplanes.live/api-docs/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/airplanes-live-01-api-docs.md"
+    },
+    {
+      "key": "airplanes-live-get-started",
+      "title": "Airplanes.live Get Started with ADS-B Feeding",
+      "url": "https://airplanes.live/get-started/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/airplanes-live-02-get-started.md"
+    },
+    {
+      "key": "airplanes-live-terms",
+      "title": "Airplanes.live Terms",
+      "url": "https://airplanes.live/terms/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/airplanes-live-03-terms.md"
+    },
+    {
+      "key": "opensky-rest-api",
+      "title": "OpenSky Network REST API documentation",
+      "url": "https://openskynetwork.github.io/opensky-api/rest.html",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/opensky-01-rest.md"
+    },
+    {
+      "key": "opensky-api-readme",
+      "title": "OpenSky API repository README",
+      "url": "https://raw.githubusercontent.com/openskynetwork/opensky-api/master/README.md",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/opensky-02-readme.md"
+    },
+    {
+      "key": "opensky-terms-page",
+      "title": "OpenSky Network Terms of Use",
+      "url": "https://opensky-network.org/about/terms-of-use",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/opensky-03-terms-access.md"
+    },
+    {
+      "key": "opensky-live-probe",
+      "title": "OpenSky anonymous live state-vector query",
+      "url": "https://opensky-network.org/api/states/all?lamin=51.45&lomin=-0.15&lamax=51.55&lomax=0.05",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/opensky-04-live-access.md"
+    },
+    {
+      "key": "adsbfi-homepage",
+      "title": "adsb.fi community homepage",
+      "url": "https://adsb.fi/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/community-adsb-02-adsb-fi.md"
+    },
+    {
+      "key": "adsbfi-api-root",
+      "title": "adsb.fi API-style host accessibility check",
+      "url": "https://api.adsb.fi/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/community-adsb-02-adsb-fi.md"
+    },
+    {
+      "key": "adsbx-data-products",
+      "title": "ADS-B Exchange Data Products",
+      "url": "https://www.adsbexchange.com/data-products/",
+      "published_date": "2026-03-05 (modified 2026-09-18)",
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsbx-01-data-products.md"
+    },
+    {
+      "key": "adsbx-openapi",
+      "title": "ADS-B Exchange API v2 OpenAPI specification",
+      "url": "https://gateway.adsbexchange.com/api/aircraft/v2/docs/openapi.json",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsbx-02-openapi.md"
+    },
+    {
+      "key": "adsbx-access-probe",
+      "title": "ADS-B Exchange unauthenticated radius-query check",
+      "url": "https://gateway.adsbexchange.com/api/aircraft/v2/lat/37.77/lon/-122.42/dist/10",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsbx-03-access-probe.md"
+    },
+    {
+      "key": "adsbx-sample-call",
+      "title": "ADS-B Exchange Sample API Call",
+      "url": "https://www.adsbexchange.com/data-products/sample-api-call/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsbx-04-sample-api-call.md"
+    },
+    {
+      "key": "adsbx-acceptable-use",
+      "title": "ADS-B Exchange Acceptable Use Policy",
+      "url": "https://www.adsbexchange.com/acceptable-use-policy/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsbx-05-acceptable-use.md"
+    },
+    {
+      "key": "adsbx-terms-of-use",
+      "title": "ADS-B Exchange API-linked Terms of Use",
+      "url": "https://www.adsbexchange.com/terms-of-use/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsbx-06-terms.md"
+    },
+    {
+      "key": "faa-swim-overview",
+      "title": "FAA System Wide Information Management (SWIM)",
+      "url": "https://www.faa.gov/air_traffic/technology/swim",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 1",
+      "evidence_path": "research/sources/faa-01-swim-overview.md"
+    },
+    {
+      "key": "faa-swim-getting-access",
+      "title": "FAA Getting Access to SWIM",
+      "url": "https://www.faa.gov/air_traffic/technology/swim/products/get_connected",
+      "published_date": "Last updated 2024-09-20",
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 1",
+      "evidence_path": "research/sources/faa-02-get-access.md"
+    },
+    {
+      "key": "flightaware-aeroapi",
+      "title": "FlightAware AeroAPI",
+      "url": "https://www.flightaware.com/commercial/aeroapi/",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/flightaware-01-aeroapi.md"
+    },
+    {
+      "key": "flightaware-aeroapi-docs",
+      "title": "FlightAware AeroAPI Developer Portal",
+      "url": "https://www.flightaware.com/aeroapi/portal/documentation",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/flightaware-02-developer-portal.md"
+    },
+    {
+      "key": "adsblol-api-readme",
+      "title": "ADSB.lol API Repository README",
+      "url": "https://raw.githubusercontent.com/adsblol/api/main/README.md",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsblol-verify-access-03-github-api-readme.md"
+    },
+    {
+      "key": "adsblol-feed-readme",
+      "title": "ADSB.lol Feed Repository README",
+      "url": "https://raw.githubusercontent.com/adsblol/feed/master/README.md",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsblol-verify-ops-02-feed-readme.md"
+    },
+    {
+      "key": "adsblol-api-source-models",
+      "title": "ADSB.lol API Repository Aircraft Field Models",
+      "url": "https://raw.githubusercontent.com/adsblol/api/main/src/adsb_api/utils/models.py",
+      "published_date": null,
+      "accessed_date": "2026-09-30",
+      "tier": "Tier 3",
+      "evidence_path": "research/sources/adsblol-verify-ops-05-api-models.md"
+    }
+  ]
+}
