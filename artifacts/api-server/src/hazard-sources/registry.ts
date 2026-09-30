@@ -106,16 +106,3 @@ export function deriveHazardCoverage(
       .join(" "),
   };
 }
-
-/**
- * Stable-identifier prefixes owned by the natural-hazards layer.
- *
- * The briefing's public-event list is filtered with these so a hazard is not
- * rendered twice under two different layers. Matching is on provider identity
- * only — never on the words in a title.
- */
-export const HAZARD_RECORD_ID_PREFIXES = ["usgs-", "eonet-"] as const;
-
-export function isHazardSourcedEventId(id: string): boolean {
-  return HAZARD_RECORD_ID_PREFIXES.some((prefix) => id.startsWith(prefix));
-}

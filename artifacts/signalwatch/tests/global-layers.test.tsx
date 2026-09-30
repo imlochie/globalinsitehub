@@ -86,6 +86,7 @@ const eventRecord = (
   title: `Event ${id}`,
   category: "public",
   source: "Fixture News",
+  sourceKind: "news",
   url: `https://news.example.test/${id}`,
   occurredAt: "2026-09-30T00:00:00.000Z",
   latitude,

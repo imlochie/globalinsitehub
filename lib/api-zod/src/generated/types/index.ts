@@ -31,6 +31,7 @@ export * from './maritimeProviderStatusStatus';
 export * from './monitoringBriefing';
 export * from './monitoringCameras';
 export * from './monitoringEvent';
+export * from './monitoringEventSourceKind';
 export * from './monitoringHazards';
 export * from './monitoringHeadline';
 export * from './monitoringSource';

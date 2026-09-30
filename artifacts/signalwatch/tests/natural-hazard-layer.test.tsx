@@ -388,14 +388,30 @@ test("EONET observations carry NASA's approximation disclaimer", () => {
 /* Layer boundaries and shared-surface purity                                 */
 /* -------------------------------------------------------------------------- */
 
-test("hazard-source records are excluded from public events by id, not wording", () => {
-  assert.equal(isHazardSourcedEvent({ id: "usgs-us7000abcd" }), true);
-  assert.equal(isHazardSourcedEvent({ id: "eonet-EONET_6789" }), true);
-  // A news story about an earthquake remains a public event.
-  assert.equal(
-    isHazardSourcedEvent({ id: "abc-news-quake-hits-region" }),
-    false,
+test("hazard records are split out by explicit provenance, not by wording", () => {
+  assert.equal(isHazardSourcedEvent({ sourceKind: "hazard" }), true);
+  // A news story about an earthquake is news provenance, so it remains a
+  // public event no matter what its title or id says.
+  assert.equal(isHazardSourcedEvent({ sourceKind: "news" }), false);
+});
+
+test("the layer split never pattern-matches ids or titles", async () => {
+  const source = await readFile(
+    new URL(
+      "../src/hooks/layer-sources/public-event-layer-source.ts",
+      import.meta.url,
+    ),
+    "utf8",
   );
+  assert.match(source, /sourceKind === 'hazard'/);
+  // Assert against code, not prose: comments may legitimately discuss the
+  // wording-based approach this module deliberately does not use.
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.doesNotMatch(code, /startsWith/);
+  assert.doesNotMatch(code, /usgs-|eonet-/);
+  assert.doesNotMatch(code, /earthquake/i);
 });
 
 const sharedSourceFiles = [

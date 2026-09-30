@@ -22,8 +22,21 @@ export interface MonitoringHeadline {
   summary?: string | null;
 }
 
+/**
+ * Explicit provenance of the feed this record came from, set where the record is created. "hazard" records come from hazard-oriented data sources and are rendered by the natural-hazards layer; "news" records come from general public reporting. Layer routing reads this field rather than pattern-matching record ids or titles.
+ */
+export type MonitoringEventSourceKind = typeof MonitoringEventSourceKind[keyof typeof MonitoringEventSourceKind];
+
+
+export const MonitoringEventSourceKind = {
+  hazard: 'hazard',
+  news: 'news',
+} as const;
+
 export interface MonitoringEvent {
   id: string;
+  /** Explicit provenance of the feed this record came from, set where the record is created. "hazard" records come from hazard-oriented data sources and are rendered by the natural-hazards layer; "news" records come from general public reporting. Layer routing reads this field rather than pattern-matching record ids or titles. */
+  sourceKind: MonitoringEventSourceKind;
   title: string;
   category: string;
   source: string;

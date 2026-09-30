@@ -11,20 +11,17 @@ import type { LayerSourceContext, LayerSourceResult } from "./types";
 const BRIEFING_LIMIT = 60;
 
 /**
- * Stable source-id prefixes owned by the natural-hazards layer.
+ * Records whose feed is hazard-oriented belong to the natural-hazards layer.
  *
- * The briefing feed still carries USGS and EONET records — they remain part of
- * the written briefing — but they are hazard-source records, so the map renders
- * them under Natural hazards and this layer skips them. Matching is on the
- * provider id the record was minted with, never on words in the title: a news
- * item about an earthquake is a public event and stays here.
+ * This reads the record's explicit `sourceKind` provenance, set server-side
+ * where the record is created. It is deliberately not a match on id prefixes or
+ * on words in the title: a news story about an earthquake is `sourceKind:
+ * "news"` and stays a public event.
  */
-const HAZARD_SOURCED_EVENT_ID_PREFIXES = ["usgs-", "eonet-"] as const;
-
-export function isHazardSourcedEvent(event: { id: string }): boolean {
-  return HAZARD_SOURCED_EVENT_ID_PREFIXES.some((prefix) =>
-    event.id.startsWith(prefix),
-  );
+export function isHazardSourcedEvent(event: {
+  sourceKind: 'hazard' | 'news';
+}): boolean {
+  return event.sourceKind === 'hazard';
 }
 
 export type PublicEventLayerSourceResult =

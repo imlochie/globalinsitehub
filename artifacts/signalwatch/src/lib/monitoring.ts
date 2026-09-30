@@ -14,6 +14,8 @@ export type BriefingEvent = {
   title: string;
   category: string;
   source: string;
+  /** Explicit feed provenance, set server-side where the record is created. */
+  sourceKind: 'hazard' | 'news';
   url: string;
   occurredAt: string;
   latitude: number | null;

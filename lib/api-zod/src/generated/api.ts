@@ -48,6 +48,7 @@ export const GetMonitoringBriefingResponse = zod.object({
 })),
   "events": zod.array(zod.object({
   "id": zod.string(),
+  "sourceKind": zod.enum(['hazard', 'news']).describe('Explicit provenance of the feed this record came from, set where the record is created. "hazard" records come from hazard-oriented data sources and are rendered by the natural-hazards layer; "news" records come from general public reporting. Layer routing reads this field rather than pattern-matching record ids or titles.'),
   "title": zod.string(),
   "category": zod.string(),
   "source": zod.string(),

@@ -52,11 +52,19 @@ type Headline = {
   summary: string | null;
 };
 
+/**
+ * `sourceKind` is explicit provenance recorded where the record is created.
+ * Layer routing reads it instead of pattern-matching ids or titles, so a news
+ * story about an earthquake can never be mistaken for a hazard observation.
+ */
+type MonitoredEventSourceKind = "hazard" | "news";
+
 type MonitoredEvent = {
   id: string;
   title: string;
   category: string;
   source: string;
+  sourceKind: MonitoredEventSourceKind;
   url: string;
   occurredAt: string;
   latitude: number | null;
@@ -216,6 +224,7 @@ function parseEarthquakes(payload: unknown): MonitoredEvent[] {
         title: asText(properties.title, "Earthquake"),
         category: "Earthquake",
         source: "USGS Earthquake Hazards Program",
+        sourceKind: "hazard",
         url,
         occurredAt: new Date(time).toISOString(),
         latitude,
@@ -281,6 +290,7 @@ function parseEonetEvents(payload: unknown): MonitoredEvent[] {
         title,
         category,
         source: "NASA EONET",
+        sourceKind: "hazard",
         url: sourceUrl,
         occurredAt: occurredAt.toISOString(),
         latitude: coordinates?.[1] ?? null,

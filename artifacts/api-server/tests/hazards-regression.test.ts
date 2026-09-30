@@ -9,10 +9,7 @@ import {
   parseEonetEvents,
   representativePoint,
 } from "../src/hazard-sources/eonet";
-import {
-  deriveHazardCoverage,
-  isHazardSourcedEventId,
-} from "../src/hazard-sources/registry";
+import { deriveHazardCoverage } from "../src/hazard-sources/registry";
 import type { HazardSourceSnapshot } from "../src/hazard-sources/types";
 import { createMonitoringHazardsRouter } from "../src/routes/hazards";
 
@@ -380,11 +377,4 @@ test("responses stay bounded by the requested limit", async () => {
       assert.equal(body.matchedCount, 2);
     },
   );
-});
-
-test("hazard-sourced briefing ids are recognised by provider prefix only", () => {
-  assert.equal(isHazardSourcedEventId("usgs-us7000abcd"), true);
-  assert.equal(isHazardSourcedEventId("eonet-EONET_6789"), true);
-  // A news item merely mentioning an earthquake stays a public event.
-  assert.equal(isHazardSourcedEventId("abc-news-earthquake-story"), false);
 });

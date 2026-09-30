@@ -5,9 +5,12 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { MonitoringEventSourceKind } from './monitoringEventSourceKind';
 
 export interface MonitoringEvent {
   id: string;
+  /** Explicit provenance of the feed this record came from, set where the record is created. "hazard" records come from hazard-oriented data sources and are rendered by the natural-hazards layer; "news" records come from general public reporting. Layer routing reads this field rather than pattern-matching record ids or titles. */
+  sourceKind: MonitoringEventSourceKind;
   title: string;
   category: string;
   source: string;
