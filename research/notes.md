@@ -113,3 +113,17 @@ _[@key] markers reference sources in research/sources.json._
 - Direct page access from the Replit workspace is not proof of availability from the running API server or of production permission.
 - ADSB.lol public-display rights, ODbL application to Signalwatch data, numeric rate limits, acceptable polling, freshness semantics, and Replit-hosted production use remain unresolved pending provider confirmation.
 - Several providers’ official pages were blocked or timed out. The report records the exact evidence and does not infer missing policy from an access failure.
+## Superseded in part — see aircraft-provider-decision.md (2026-09-30)
+
+`research/aircraft-provider-decision.md` records an independent revalidation of every provider above against
+first-party documentation on 2026-09-30, and declares the feasibility gate (**CONDITIONAL — not cleared**).
+Two findings in this file are superseded there:
+
+- **OpenSky**: its terms of use are readable now and explicitly require a prior written agreement for use of the
+  REST API "in any operational capacity — including integration into a live product, service, or automated
+  system", limit the default licence to non-profit research and education, and forbid making the data available
+  to third parties. OpenSky is therefore blocked for Signalwatch, not merely "conditional".
+- **adsb.fi**: its official open-data API, endpoints, numeric rate limits (1 req/s public) and terms are now
+  readable. The terms restrict use to "personal, non-commercial use only", which a public map is not.
+
+No live endpoint probe was made in the 2026-09-30 pass: that sandbox had no outbound network egress.
