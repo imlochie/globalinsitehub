@@ -101,6 +101,24 @@ Removing that requires a commercial OV/EV code-signing certificate, a recurring
 annual cost that has not been authorised. The verifier asserts no signing
 thumbprint is configured so this stays a deliberate choice rather than drift.
 
+## Windows build checklist
+
+The Windows bundle **must be prepared on Windows**: `prepare-sidecar.mjs`
+copies the build host's Node runtime, so preparing on Linux would stage an ELF
+binary inside a Windows installer. Guard against it:
+
+```powershell
+$env:VERIFY_DESKTOP_REQUIRE_RUNTIME = "1"
+$env:VERIFY_DESKTOP_BOOT_SIDECAR    = "1"
+pnpm --filter @workspace/signalwatch-desktop run verify:desktop
+```
+
+The verifier reads the staged runtime's magic bytes and fails unless it is a
+PE/COFF binary for a `win32` bundle (ELF for Linux, Mach-O for macOS).
+
+After building, confirm in the installed app directory that `node.exe` is a
+Windows binary, `resources/api/index.mjs` is present, and no ELF binary shipped.
+
 ## Verify
 
 ```bash

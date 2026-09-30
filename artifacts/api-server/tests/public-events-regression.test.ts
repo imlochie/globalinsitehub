@@ -448,3 +448,34 @@ test("no provider module reclassifies records by keyword", async () => {
     assert.doesNotMatch(code, /hazardType/);
   }
 });
+
+/* -------------------------------------------------------------------------- */
+/* Bind address (desktop sidecar safety)                                      */
+/* -------------------------------------------------------------------------- */
+
+test("the server honours HOST so the desktop sidecar stays on loopback", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const entry = await readFile(
+    new URL("../src/index.ts", import.meta.url),
+    "utf8",
+  );
+
+  // Express binds every interface when no host is passed. The packaged desktop
+  // app sets HOST=127.0.0.1 so its bundled API is not published to the local
+  // network; that only works if the host argument is actually supplied.
+  assert.match(
+    entry,
+    /app\.listen\(\s*port\s*,\s*host\s*,/,
+    "app.listen must receive an explicit host argument",
+  );
+  assert.match(
+    entry,
+    /process\.env\["HOST"\]/,
+    "the bind address must be configurable via HOST",
+  );
+  assert.match(
+    entry,
+    /\|\|\s*"0\.0\.0\.0"/,
+    "server deployments must keep binding all interfaces by default",
+  );
+});

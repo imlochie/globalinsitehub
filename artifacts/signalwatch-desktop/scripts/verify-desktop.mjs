@@ -142,6 +142,40 @@ assert.match(
   "the build must prepare the sidecar before bundling",
 );
 
+// The staged runtime must match the platform being bundled. Copying a Linux
+// node into a Windows .exe is the single most likely packaging mistake here,
+// because prepare-sidecar.mjs copies the *build host's* runtime.
+const RUNTIME_MAGIC = {
+  win32: { hex: "4d5a", label: "PE/COFF (.exe)" },
+  linux: { hex: "7f45", label: "ELF" },
+  darwin: { hex: "cffa", label: "Mach-O" },
+};
+
+async function assertRuntimeMatchesTarget(target) {
+  const name = target === "win32" ? "node.exe" : "node";
+  const binary = path.join(tauriDir, "resources", "runtime", name);
+  let head;
+  try {
+    const handle = await readFile(binary);
+    head = handle.subarray(0, 2).toString("hex");
+  } catch {
+    assert.fail(
+      `no ${name} staged in resources/runtime — run scripts/prepare-sidecar.mjs on the ${target} build host`,
+    );
+  }
+  const expected = RUNTIME_MAGIC[target];
+  assert.equal(
+    head,
+    expected.hex,
+    `resources/runtime/${name} must be a ${expected.label} binary for a ${target} bundle`,
+  );
+}
+
+const bundleTarget = process.env.VERIFY_DESKTOP_TARGET ?? process.platform;
+if (process.env.VERIFY_DESKTOP_REQUIRE_RUNTIME === "1") {
+  await assertRuntimeMatchesTarget(bundleTarget);
+}
+
 // The prepared sidecar, when present, must actually run and serve the API.
 const runtimeName = process.platform === "win32" ? "node.exe" : "node";
 const runtimeBin = path.join(tauriDir, "resources", "runtime", runtimeName);
@@ -211,6 +245,7 @@ console.log(
     "  icons        icon.ico + 32/128/256 PNGs valid",
     `  API           bundled sidecar on a runtime-chosen loopback port`,
     `  sidecar files ${sidecarChecked ? "prepared" : "NOT prepared (run prepare-sidecar.mjs)"}`,
+    `  bundle target ${bundleTarget}`,
     "  signing      none (unsigned, $0 posture)",
   ].join("\n"),
 );
