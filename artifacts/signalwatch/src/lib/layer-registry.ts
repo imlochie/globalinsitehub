@@ -251,11 +251,26 @@ export const cameraLayerDefinition: LayerDefinition = {
   sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_CAMERA_MARKERS },
 };
 
+export const MAX_GLOBE_PUBLIC_EVENT_MARKERS = 200;
+
+/**
+ * Public events.
+ *
+ * Geolocated civic reporting from road/transport authorities: incidents,
+ * crashes, closures, roadworks, flooding-affected roads and major events.
+ *
+ * The layer's meaning is broader than its current providers. QLDTraffic and
+ * Transport for NSW are simply the free, openly licensed sources available
+ * today; other civic sources can join without changing what the layer means.
+ *
+ * Categories are always the category the authority assigned. A record about a
+ * road closed by flooding is a civic incident here, not a natural hazard.
+ */
 export const publicEventLayerDefinition: LayerDefinition = {
   id: "public-events",
-  label: "Public events / news",
+  label: "Public events",
   description:
-    "Public briefing records; only events with source coordinates appear on the map.",
+    "Civic incidents from free, openly licensed road authority feeds. Regional coverage only.",
   status: "operational",
   category: "reporting",
   observationKind: "public-event",
@@ -264,8 +279,8 @@ export const publicEventLayerDefinition: LayerDefinition = {
     map: true,
     globe: true,
     inspector: true,
-    search: false,
-    providerFiltering: false,
+    search: true,
+    providerFiltering: true,
   },
   display: {
     markerColor: "#fbbf24",
@@ -274,11 +289,52 @@ export const publicEventLayerDefinition: LayerDefinition = {
     markerClassName:
       "size-2 border-amber-100 bg-amber-300 shadow-[0_0_7px_rgba(251,191,36,0.55)]",
     legendLabel: "Public event",
+    tooltipNote: "authority reported",
     iconKey: "newspaper",
   },
-  // Event provenance is carried per record by the briefing feed rather than by
-  // a fixed provider catalogue, so no static provider list is declared here.
-  providers: [],
+  providers: [
+    {
+      id: "qldtraffic",
+      name: "QLDTraffic (Queensland TMR)",
+      countries: ["AU"],
+      attribution:
+        "State of Queensland (Department of Transport and Main Roads), QLDTraffic",
+      catalogueUrl:
+        "https://www.data.qld.gov.au/dataset/131940-traffic-and-travel-information-geojson-api",
+      licence: "CC BY 4.0 AU",
+      coverage: {
+        scope: "regional",
+        regions: ["Queensland road network"],
+        note: "Crashes, hazards, congestion, flooding, roadworks and special events. Current conditions only.",
+      },
+    },
+    {
+      id: "tfnsw",
+      name: "Transport for NSW Live Traffic",
+      countries: ["AU"],
+      attribution: "Transport for NSW",
+      catalogueUrl:
+        "https://opendata.transport.nsw.gov.au/data/dataset/live-traffic-hazards",
+      licence: "CC BY 4.0",
+      coverage: {
+        scope: "regional",
+        regions: ["New South Wales road network"],
+        note: "Incidents, fires, floods, alpine conditions, major events and roadworks. Requires a free TfNSW API key.",
+      },
+    },
+  ],
+  coverage: {
+    scope: "regional",
+    regions: ["Queensland road network", "New South Wales road network"],
+    note:
+      "Regional coverage: Queensland and New South Wales roads only. Empty space " +
+      "elsewhere means Signalwatch has no civic incident source there, not that no " +
+      "incidents are occurring. Current conditions only, not a historical archive.",
+  },
+  sampling: {
+    kind: "provider-balanced",
+    maxMarkers: MAX_GLOBE_PUBLIC_EVENT_MARKERS,
+  },
 };
 
 export const MAX_GLOBE_VESSEL_MARKERS = 220;
@@ -396,11 +452,11 @@ export const naturalHazardLayerDefinition: LayerDefinition = {
     providerFiltering: true,
   },
   display: {
-    markerColor: "#fbbf24",
-    markerStrokeColor: "#fef3c7",
-    markerTextColor: "#fcd34d",
+    markerColor: "#fb7185",
+    markerStrokeColor: "#ffe4e6",
+    markerTextColor: "#fda4af",
     markerClassName:
-      "size-2 border-amber-100 bg-amber-300 shadow-[0_0_7px_rgba(251,191,36,0.55)]",
+      "size-2 border-rose-100 bg-rose-400 shadow-[0_0_7px_rgba(251,113,133,0.55)]",
     legendLabel: "Natural hazard",
     tooltipNote: "source-reported",
     iconKey: "hazard",

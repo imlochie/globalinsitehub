@@ -10,6 +10,7 @@
  */
 import { useEffect, useMemo } from "react";
 import { useGlobalLayerState } from "@/components/global-layer-provider";
+import { useBriefing } from "@/hooks/use-briefing";
 import {
   useCameraLayerSource,
   type CameraLayerSourceResult,
@@ -40,6 +41,8 @@ import {
  * Combines layer sources. Kept generic so callers/renderers never inspect a
  * particular layer to build the observation set.
  */
+const BRIEFING_LIMIT = 60;
+
 export function combineLayerSources(
   sources: readonly LayerSourceResult<GlobalObservation>[],
 ): {
@@ -75,6 +78,11 @@ export function useGlobalLayerData() {
     enabled: layerState.isLayerEnabled("maritime"),
     state: layerState,
   });
+
+  // The public briefing is a reporting surface in its own right (the briefing
+  // and sources pages), no longer the data source for the public-events layer,
+  // so it is fetched independently of layer enablement.
+  const briefingSource = useBriefing(BRIEFING_LIMIT);
 
   const naturalHazardSource: NaturalHazardLayerSourceResult =
     useNaturalHazardLayerSource({
@@ -126,7 +134,7 @@ export function useGlobalLayerData() {
     statusByLayer,
   ]);
 
-  const briefing = publicEventSource.briefing;
+  const briefing = briefingSource.briefing;
   const allEvents = briefing?.events ?? [];
 
   return {
@@ -142,14 +150,17 @@ export function useGlobalLayerData() {
     cameraCatalogue: cameraSource.catalogue,
     vesselFeed: maritimeSource.feed,
     hazardFeed: naturalHazardSource.feed,
+    publicEventFeed: publicEventSource.feed,
     briefing,
-    briefingLoading: publicEventSource.status.isLoading,
-    briefingFetching: publicEventSource.status.isFetching,
-    briefingError: publicEventSource.status.hasError,
-    refetchBriefing: publicEventSource.refetch,
+    briefingLoading: briefingSource.isLoading,
+    briefingFetching: briefingSource.isFetching,
+    briefingError: briefingSource.isError,
+    refetchBriefing: () => {
+      void briefingSource.refetch();
+    },
     events: allEvents,
     headlines: briefing?.headlines ?? [],
-    locatedEventCount: publicEventSource.locatedEventCount,
+    locatedEventCount: publicEventSource.observations.length,
     eventRecordCount: allEvents.length,
     headlineCount: briefing?.headlines.length ?? 0,
     sourcesOnline: briefing?.sourcesOnline ?? 0,

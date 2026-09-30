@@ -152,8 +152,15 @@ test("registry is the authoritative description of every layer", () => {
   const events = layerRegistry.require("public-events");
   assert.equal(events.status, "operational");
   assert.equal(events.observationKind, "public-event");
-  assert.equal(events.capabilities.providerFiltering, false);
-  assert.equal(events.sampling, undefined);
+  // Public events is now supplied by named civic providers, so it filters by
+  // provider and carries its own sampling cap like the other real layers.
+  assert.equal(events.capabilities.providerFiltering, true);
+  assert.deepEqual(
+    events.providers.map((provider) => provider.id),
+    ["qldtraffic", "tfnsw"],
+  );
+  assert.equal(events.coverage?.scope, "regional");
+  assert.equal(events.sampling?.kind, "provider-balanced");
 
   // Planned layers stay planned: no providers, not enabled, not operational.
   const planned = layerRegistry.planned();
@@ -366,14 +373,17 @@ test("public-event acquisition follows layer enablement", async () => {
     new URL("../src/hooks/layer-sources/public-event-layer-source.ts", import.meta.url),
     "utf8",
   );
-  assert.match(source, /useBriefing\(BRIEFING_LIMIT,\s*\{\s*enabled\s*\}\)/);
+  assert.match(source, /usePublicEventFeed\(\{\s*enabled,/);
 
-  const briefing = await readFile(
-    new URL("../src/hooks/use-briefing.ts", import.meta.url),
+  const feed = await readFile(
+    new URL("../src/hooks/use-public-event-feed.ts", import.meta.url),
     "utf8",
   );
-  assert.match(briefing, /enabled,/);
-  assert.match(briefing, /refetchInterval: enabled \? 60_000 : false/);
+  assert.match(feed, /enabled,/);
+  assert.match(feed, /refetchInterval: enabled \? QUERY_REFETCH_MS : false/);
+  // The browser only ever talks to the Signalwatch API.
+  assert.doesNotMatch(feed, /qldtraffic\.qld\.gov\.au/);
+  assert.doesNotMatch(feed, /transport\.nsw\.gov\.au/);
 
   const hook = await readFile(
     new URL("../src/hooks/use-global-layer-data.ts", import.meta.url),
@@ -401,7 +411,7 @@ test("a registered layer can be resolved by capability", () => {
   );
   assert.deepEqual(
     registry.withCapability("providerFiltering").map((definition) => definition.id),
-    ["cameras", "test-buoys"],
+    ["cameras", "public-events", "test-buoys"],
   );
   assert.deepEqual(registry.planned(), []);
 });

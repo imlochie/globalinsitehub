@@ -11,7 +11,6 @@ import type {
 import { GlobalLayerControl } from "../src/components/global-layer-control";
 import { GlobalObservationInspector } from "../src/components/global-observation-inspector";
 import { naturalHazardLayerPanel } from "../src/components/layer-panels/natural-hazard-layer-panel";
-import { isHazardSourcedEvent } from "../src/hooks/layer-sources/public-event-layer-source";
 import {
   createNaturalHazardLayerProviderAdapter,
   isNaturalHazardObservation,
@@ -388,31 +387,7 @@ test("EONET observations carry NASA's approximation disclaimer", () => {
 /* Layer boundaries and shared-surface purity                                 */
 /* -------------------------------------------------------------------------- */
 
-test("hazard records are split out by explicit provenance, not by wording", () => {
-  assert.equal(isHazardSourcedEvent({ sourceKind: "hazard" }), true);
-  // A news story about an earthquake is news provenance, so it remains a
-  // public event no matter what its title or id says.
-  assert.equal(isHazardSourcedEvent({ sourceKind: "news" }), false);
-});
 
-test("the layer split never pattern-matches ids or titles", async () => {
-  const source = await readFile(
-    new URL(
-      "../src/hooks/layer-sources/public-event-layer-source.ts",
-      import.meta.url,
-    ),
-    "utf8",
-  );
-  assert.match(source, /sourceKind === 'hazard'/);
-  // Assert against code, not prose: comments may legitimately discuss the
-  // wording-based approach this module deliberately does not use.
-  const code = source
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
-  assert.doesNotMatch(code, /startsWith/);
-  assert.doesNotMatch(code, /usgs-|eonet-/);
-  assert.doesNotMatch(code, /earthquake/i);
-});
 
 const sharedSourceFiles = [
   "../src/components/global-layer-control.tsx",
@@ -459,59 +434,4 @@ test("hazard acquisition follows layer enablement and stays server-side", async 
   assert.match(feed, /useGetMonitoringHazards/);
 });
 
-/* -------------------------------------------------------------------------- */
-/* Public events: honest empty state after the hazard split                   */
-/* -------------------------------------------------------------------------- */
 
-test("reachable public-event sources with nothing mappable do not read as healthy", async () => {
-  const { publicEventLayerPanel } = await import(
-    "../src/components/layer-panels/public-event-layer-panel"
-  );
-
-  const unmappable = publicEventLayerPanel({
-    enabled: true,
-    onEnabledChange: () => {},
-    isLoading: false,
-    isError: false,
-    locatedCount: 0,
-    recordCount: 0,
-    headlineCount: 48,
-    sourcesOnline: 4,
-    sourceCount: 4,
-    generatedAt: "2026-09-30T04:00:00.000Z",
-  });
-
-  // Feeds are up, but nothing can be placed: that is not a green state.
-  assert.equal(unmappable.status.tone, "warn");
-  assert.match(unmappable.status.label, /no mappable records/i);
-  assert.doesNotMatch(unmappable.status.label, /^Source status: available$/);
-
-  const markup = renderToStaticMarkup(
-    <Router ssrPath="/">
-      <GlobalLayerControl layers={[unmappable]} />
-    </Router>,
-  );
-  assert.match(markup, /text-public-events-unmappable-note/);
-  assert.match(markup, /not that nothing is being reported/i);
-});
-
-test("public events still reads as available once it can place records", async () => {
-  const { publicEventLayerPanel } = await import(
-    "../src/components/layer-panels/public-event-layer-panel"
-  );
-
-  const mappable = publicEventLayerPanel({
-    enabled: true,
-    onEnabledChange: () => {},
-    isLoading: false,
-    isError: false,
-    locatedCount: 12,
-    recordCount: 20,
-    headlineCount: 48,
-    sourcesOnline: 4,
-    sourceCount: 4,
-  });
-
-  assert.equal(mappable.status.tone, "good");
-  assert.equal(mappable.note, undefined);
-});

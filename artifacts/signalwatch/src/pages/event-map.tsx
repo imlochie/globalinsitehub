@@ -14,7 +14,7 @@ import { buildLayerPanels } from "@/components/layer-panels";
 import { GlobalObservationInspector } from "@/components/global-observation-inspector";
 import { SignalMap } from "@/components/map-panel";
 import { useGlobalLayerData } from "@/hooks/use-global-layer-data";
-import { normalizePublicEvent, selectedIdForLayer } from "@/lib/global-layers";
+import { hasMappableCoordinates, selectedIdForLayer } from "@/lib/global-layers";
 import {
   formatAbsoluteTime,
   formatRelativeTime,
@@ -35,7 +35,7 @@ export default function EventMapPage() {
     () => [
       ...new Set(
         layerData.events
-          .filter((event: BriefingEvent) => normalizePublicEvent(event) !== null)
+          .filter((event: BriefingEvent) => hasMappableCoordinates(event))
           .map((event: BriefingEvent) => event.category)
           .filter(Boolean),
       ),
@@ -46,7 +46,7 @@ export default function EventMapPage() {
     if (!layerData.isLayerEnabled("public-events")) return [];
     const term = search.trim().toLowerCase();
     return layerData.events.filter((event: BriefingEvent) => {
-      if (normalizePublicEvent(event) === null) return false;
+      if (!hasMappableCoordinates(event)) return false;
       const textMatch =
         !term ||
         [event.title, event.category, event.source, event.detail]

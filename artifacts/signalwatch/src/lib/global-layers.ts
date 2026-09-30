@@ -13,6 +13,8 @@ import type {
   HazardRecord,
   HazardSourceStatus,
   MaritimeProviderStatus,
+  PublicEventProviderStatus,
+  PublicEventRecord,
   VesselRecord,
 } from "@workspace/api-client-react";
 import type { BriefingEvent } from "@/lib/monitoring";
@@ -52,6 +54,7 @@ export type ObservationProvenance = {
     | CameraProviderStatus
     | MaritimeProviderStatus
     | HazardSourceStatus
+    | PublicEventProviderStatus
     | null;
 };
 
@@ -81,13 +84,30 @@ export type CameraObservation = BaseObservation<"cameras", "camera"> & {
   record: CameraRecord;
 };
 
+/**
+ * A civic incident published by a road/transport authority.
+ *
+ * `eventType` is the category the source assigned — never inferred from
+ * wording, so a record whose description mentions flooding is still a civic
+ * incident and not a natural hazard. `sourcePriority` is the source's own
+ * label and is deliberately not a score: it is never ranked against another
+ * provider's priorities or against a hazard magnitude.
+ */
 export type PublicEventObservation = BaseObservation<
   "public-events",
   "public-event"
 > & {
-  category: string;
-  occurredAt: string;
-  record: BriefingEvent;
+  eventType: string;
+  eventSubtype: string | null;
+  sourcePriority: string | null;
+  status: string | null;
+  /** True when the coordinate was averaged from a multi-segment geometry. */
+  locationDerived: boolean;
+  locationNote: string | null;
+  /** When the Signalwatch API server received this record. */
+  receivedAt: string;
+  licence: string;
+  record: PublicEventRecord;
 };
 
 /**
@@ -410,16 +430,46 @@ export function createCameraLayerProviderAdapter(
 /* Public events layer                                                        */
 /* -------------------------------------------------------------------------- */
 
-export function normalizePublicEvent(
-  record: BriefingEvent,
+/**
+ * True when a briefing record carries usable coordinates.
+ *
+ * The briefing feed is reporting, not a civic incident source; this predicate
+ * exists only so briefing list views can tell which records could be placed.
+ * It is not part of the public-events layer pipeline.
+ */
+export function hasMappableCoordinates(record: BriefingEvent): boolean {
+  return (
+    record.latitude !== null &&
+    record.longitude !== null &&
+    isValidCoordinates(record.latitude, record.longitude)
+  );
+}
+
+function publicEventDetail(record: PublicEventRecord): string | null {
+  const parts = [
+    record.impact?.impactType ?? null,
+    record.impact?.delay ?? null,
+    record.roadSummary?.locality ?? null,
+  ].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(" \u00b7 ") : (record.description ?? null);
+}
+
+/**
+ * Normalizes one civic incident. Records are dropped only when they cannot be
+ * placed honestly; nothing is dropped for being "minor", because that
+ * judgement belongs to the reporting authority.
+ */
+export function normalizePublicEventRecord(
+  record: PublicEventRecord,
+  providers: readonly PublicEventProviderStatus[],
 ): PublicEventObservation | null {
-  if (
-    record.latitude === null ||
-    record.longitude === null ||
-    !isValidCoordinates(record.latitude, record.longitude)
-  ) {
-    return null;
-  }
+  if (!isValidCoordinates(record.latitude, record.longitude)) return null;
+  const receivedAt = asIsoString(record.receivedAt);
+  if (receivedAt === null) return null;
+
+  const providerStatus =
+    providers.find((provider) => provider.id === record.provider) ?? null;
+
   return {
     kind: "public-event",
     layerId: "public-events",
@@ -428,29 +478,39 @@ export function normalizePublicEvent(
     latitude: record.latitude,
     longitude: record.longitude,
     label: record.title,
-    observedAt: record.occurredAt,
-    detail: record.detail ?? null,
-    providerId: record.source,
-    providerName: record.source,
-    sourceUrl: record.url,
-    attribution: null,
-    catalogueUrl: null,
-    providerStatus: null,
-    category: record.category,
-    occurredAt: record.occurredAt,
+    // The authority's own time for the record, never the receipt time.
+    observedAt:
+      asIsoString(record.lastUpdatedAt ?? null) ??
+      asIsoString(record.publishedAt ?? null) ??
+      asIsoString(record.startedAt ?? null),
+    detail: publicEventDetail(record),
+    providerId: record.provider,
+    providerName: providerStatus?.name ?? record.provider,
+    sourceUrl: record.sourceUrl,
+    attribution: record.attribution,
+    catalogueUrl: providerStatus?.catalogueUrl ?? null,
+    providerStatus,
+    eventType: record.eventType,
+    eventSubtype: record.eventSubtype ?? null,
+    sourcePriority: record.sourcePriority ?? null,
+    status: record.status ?? null,
+    locationDerived: record.locationDerived,
+    locationNote: record.locationNote ?? null,
+    receivedAt,
+    licence: record.licence,
     record,
   };
 }
 
-export const publicEventProviderAdapter: LayerProviderAdapter<
-  BriefingEvent,
-  PublicEventObservation
-> = {
-  layerId: "public-events",
-  providerId: (record) => record.source,
-  normalize: normalizePublicEvent,
-};
-
+export function createPublicEventLayerProviderAdapter(
+  providers: readonly PublicEventProviderStatus[],
+): LayerProviderAdapter<PublicEventRecord, PublicEventObservation> {
+  return {
+    layerId: "public-events",
+    providerId: (record) => record.provider,
+    normalize: (record) => normalizePublicEventRecord(record, providers),
+  };
+}
 
 /* -------------------------------------------------------------------------- */
 /* Maritime layer                                                             */

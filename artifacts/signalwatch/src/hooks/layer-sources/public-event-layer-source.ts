@@ -1,69 +1,56 @@
-/** Public events layer source: the public briefing -> PublicEventObservation[]. */
+/**
+ * Public events layer source: civic incident feeds -> PublicEventObservation[].
+ *
+ * Coverage is regional by construction, so this module exposes the feed's
+ * derived coverage statement and per-provider health next to the observations.
+ * A provider that is unconfigured or unreachable is reported as such; it is
+ * never allowed to read as "no incidents".
+ */
 import { useMemo } from "react";
-import { useBriefing } from "@/hooks/use-briefing";
+import { usePublicEventFeed } from "@/hooks/use-public-event-feed";
 import {
-  publicEventProviderAdapter,
+  createPublicEventLayerProviderAdapter,
   type PublicEventObservation,
 } from "@/lib/global-layers";
-import type { Briefing } from "@/lib/monitoring";
 import type { LayerSourceContext, LayerSourceResult } from "./types";
-
-const BRIEFING_LIMIT = 60;
-
-/**
- * Records whose feed is hazard-oriented belong to the natural-hazards layer.
- *
- * This reads the record's explicit `sourceKind` provenance, set server-side
- * where the record is created. It is deliberately not a match on id prefixes or
- * on words in the title: a news story about an earthquake is `sourceKind:
- * "news"` and stays a public event.
- */
-export function isHazardSourcedEvent(event: {
-  sourceKind: 'hazard' | 'news';
-}): boolean {
-  return event.sourceKind === 'hazard';
-}
 
 export type PublicEventLayerSourceResult =
   LayerSourceResult<PublicEventObservation> & {
-    briefing: Briefing | undefined;
-    /** Briefing events this layer can place on the map. */
-    locatedEventCount: number;
+    feed: ReturnType<typeof usePublicEventFeed>;
   };
 
 export function usePublicEventLayerSource({
   enabled,
+  state,
 }: LayerSourceContext): PublicEventLayerSourceResult {
-  // Data acquisition follows enablement: the briefing query is not started
-  // while the layer is off.
-  const query = useBriefing(BRIEFING_LIMIT, { enabled });
-  const briefing = enabled ? query.briefing : undefined;
+  const filters = state.publicEventFilters;
+  const feed = usePublicEventFeed({
+    enabled,
+    provider: filters.provider,
+    search: filters.debouncedSearch,
+  });
 
-  const observations = useMemo(
-    () =>
-      (briefing?.events ?? [])
-        .filter((record) => !isHazardSourcedEvent(record))
-        .map((record) => publicEventProviderAdapter.normalize(record))
-        .filter((observation): observation is PublicEventObservation =>
+  const observations = useMemo(() => {
+    const adapter = createPublicEventLayerProviderAdapter(feed.providers);
+    return feed.events
+      .map((record) => adapter.normalize(record))
+      .filter(
+        (observation): observation is PublicEventObservation =>
           observation !== null,
-        ),
-    [briefing?.events],
-  );
+      );
+  }, [feed.events, feed.providers]);
 
   return {
     layerId: "public-events",
     enabled,
     observations,
     status: {
-      isLoading: enabled && query.isLoading,
-      isFetching: enabled && query.isFetching,
-      hasError: enabled && query.isError,
-      isUnavailable: enabled && query.isError && !briefing,
+      isLoading: feed.isLoading,
+      isFetching: feed.isFetching,
+      hasError: feed.hasError,
+      isUnavailable: feed.isUnavailable,
     },
-    refetch: () => {
-      void query.refetch();
-    },
-    briefing,
-    locatedEventCount: observations.length,
+    refetch: feed.refetch,
+    feed,
   };
 }

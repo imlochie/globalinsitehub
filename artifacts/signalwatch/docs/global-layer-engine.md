@@ -153,7 +153,8 @@ Operational:
 
 - `cameras` — Queensland TMR, Transport for NSW, OpenTrafficCamMap. Catalogue
   records only; Signalwatch does not probe or proxy individual feeds.
-- `public-events` — geolocated records from the public briefing.
+- `public-events` — civic incidents from two free, openly licensed road authority
+  feeds. **Regional coverage, deliberately.**
 - `maritime` — vessel positions from two free, openly licensed government AIS
   feeds. **Regional coverage, deliberately.**
 - `natural-hazards` — earthquake and natural-event observations from two free
@@ -236,6 +237,41 @@ failure.
 5. No UI change is required: the panel lists providers and the inspector reads
    provenance generically.
 
+### Public events: civic incidents, regional by construction
+
+| Provider | Licence | Access | Covers |
+| --- | --- | --- | --- |
+| `qldtraffic` (Queensland TMR) | CC BY 4.0 AU | **none** — public key published in the API spec | Queensland roads: crashes, hazards, congestion, flooding, roadworks, special events |
+| `tfnsw` (Transport for NSW) | CC BY 4.0 | free Open Data Hub account → `TFNSW_API_KEY` | NSW roads: incidents, fires, floods, alpine conditions, major events, roadworks |
+
+Design points specific to this layer:
+
+- **`unconfigured` is a first-class provider status.** A provider missing a
+  credential is neither healthy nor failed. It reports `unconfigured`, shows the
+  environment variable that would enable it, and never suppresses the other
+  providers. Credentials are configuration, not code.
+- **Source semantics decide classification.** `eventType` is copied from the
+  authority. A record about a road closed by flooding stays a civic incident and
+  is never promoted into `natural-hazards`. Tests assert no provider module
+  matches hazard keywords.
+- **Priority is the source's label, not a score.** `sourcePriority` is rendered
+  as "Source priority: Low". It is never numeric, never ranked, and never
+  compared with a hazard magnitude.
+- **Derived locations are disclosed.** Road events are GeometryCollections of
+  LineStrings spanning several segments, so a representative point is averaged
+  and flagged `locationDerived`. The inspector then labels the field
+  "Representative coordinates" and explains why. A single published Point is
+  never described that way.
+- **Current conditions only.** Neither feed is a historical archive, and TfNSW's
+  historical reporting omits coordinates, so no historical claim is made.
+
+### Adding another free civic source
+
+1. Add `artifacts/api-server/src/public-event-providers/<source>.ts` exporting a
+   coverage object, a provider definition and a parser.
+2. Settle it independently in `registry.ts`.
+3. Add it to `publicEventLayerDefinition.providers`.
+
 ### Natural hazards: global reach, bounded completeness
 
 | Source | Licence | Access | Covers |
@@ -304,6 +340,16 @@ sampling/inspector/control path and guards that shared surfaces never branch on
 `artifacts/api-server/tests/maritime-regression.test.ts` covers AIS sentinel
 handling, both provider parsers, cache ageing, provider isolation, coverage
 derivation and the route contract.
+`tests/public-event-layer.test.tsx` covers the civic-incident registry entry and its
+regional coverage honesty, normalization (source category, priority, provenance,
+rejected coordinates, cross-provider distinctness), the authority time staying distinct
+from the receipt time, `unconfigured` reading as configuration rather than "no
+incidents", derived-location disclosure, and a guard that shared surfaces never branch
+on the public-event kind.
+`artifacts/api-server/tests/public-events-regression.test.ts` covers representative
+point derivation from GeometryCollections, the "N/A" subtype placeholder, http→https
+link upgrading, the documented public key default, credential gating, coverage
+derivation, provider independence and response bounding.
 `tests/natural-hazard-layer.test.tsx` covers the natural-hazards registry entry and
 its coverage honesty, hazard normalization (identity, provenance, rejected
 coordinates and times, unknown sources), the refusal to merge records across

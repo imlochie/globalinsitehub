@@ -71,25 +71,31 @@ and a shared record inspector with provenance intact.
   state, selection and inspector as the workspace.
 - `/monitoring`, `/sources` — briefing and source-availability views.
 - Operational layers today: public cameras (Queensland TMR, Transport for NSW,
-  OpenTrafficCamMap), public events/news, and maritime. Camera catalogue entries are listings only —
-  Signalwatch never probes or proxies an individual feed, and catalogue status is always
-  shown separately from feed reachability.
-- Maritime is **operational with regional coverage at $0 recurring cost**. Two free,
-  openly licensed government AIS feeds are aggregated server-side at
-  `GET /api/monitoring/maritime`:
-  - Fintraffic / Digitraffic (CC BY 4.0, no account) — Finnish waterways. Class A only;
-    fishing vessels are removed at source.
-  - Kystverket / BarentsWatch (NLOD 2.0, free account + OAuth2 client credentials in
-    `BARENTSWATCH_CLIENT_ID` / `BARENTSWATCH_CLIENT_SECRET`) — Norwegian EEZ, Svalbard
-    and Jan Mayen; excludes fishing vessels under 15 m and leisure craft under 45 m.
-    Without credentials the provider reports `unavailable` and shows no vessels.
-  Maritime must never be described as global. Empty sea outside those regions means
-  Signalwatch has no maritime source there, not that no vessels are present. AIS is
-  self-reported: identity, type and destination are claims by the vessel, and no
-  purpose, cargo or affiliation is ever inferred. Vessel freshness is movement aware
-  (under way: fresh ≤10 min, removed after 30 min; stationary: fresh ≤1 h, removed
-  after 6 h); the provider position time and the Signalwatch receipt time are kept
-  separate and never conflated. Attribution and licence travel with every record.
+  OpenTrafficCamMap), public events (civic incidents), natural hazards, and maritime.
+  Camera catalogue entries are listings only — Signalwatch never probes or proxies an
+  individual feed, and catalogue status is always shown separately from feed
+  reachability.
+- Public events is **operational with regional coverage at $0 recurring cost**. It is
+  geolocated civic reporting — incidents, crashes, closures, roadworks,
+  flooding-affected roads and major events — aggregated server-side at
+  `GET /api/monitoring/public-events`:
+  - QLDTraffic / Queensland TMR (CC BY 4.0 AU) — Queensland roads. **No account**:
+    the API specification publishes a public key for unregistered developers, which
+    is used by default and can be overridden with `QLDTRAFFIC_API_KEY`. That public
+    key is globally rate limited (100 req/min shared), so a 429 is possible and is
+    reported honestly.
+  - Transport for NSW Live Traffic (CC BY 4.0) — NSW roads. Requires a free Open Data
+    Hub account and `TFNSW_API_KEY`. Without it the provider reports `unconfigured`
+    and contributes nothing; Queensland data is unaffected.
+  The layer's meaning is broader than its current providers — other free civic sources
+  can join without changing what it means. Categories are always the category the
+  authority assigned: a road closed by flooding is a civic incident, **not** a natural
+  hazard, and nothing is reclassified from wording. The source's own priority label is
+  shown as theirs and is never turned into a severity score or compared across
+  providers. Many road events are multi-segment geometries with no single published
+  coordinate; those markers are **derived representative points** and say so. Current
+  conditions only — this is not a historical archive. Coverage is regional: empty space
+  outside Queensland and NSW means Signalwatch has no civic source there.
 - Natural hazards is **operational with global reach at $0 recurring cost**. Two free
   public-sector hazard feeds are aggregated server-side at
   `GET /api/monitoring/hazards`:
@@ -107,12 +113,9 @@ and a shared record inspector with provenance intact.
   separate. EONET records carry NASA's own disclaimer that they are approximations and
   not official as to spatial or temporal extent. If a source fails it is reported as
   unavailable — never as "no hazards".
-- Because USGS and NASA EONET records are hazard-source records, the **public-events
-  map layer** no longer renders them (they are excluded by stable provider id prefix,
-  never by wording). The written briefing still lists them. The remaining public-event
-  sources are news RSS feeds, which carry no coordinates, so the public-events map layer
-  currently has no mappable records of its own — this is stated honestly rather than
-  fixed by double-rendering hazards. See `research/natural-hazards-source-decision.md`.
+- The public briefing (news RSS) is a reporting surface in its own right and no longer
+  feeds any map layer; briefing records carry an explicit `sourceKind` provenance field.
+  See `research/public-events-provider-decision.md`.
 - Aircraft, satellites, weather and infrastructure are registered as
   planned layers with no data source connected.
 

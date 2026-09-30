@@ -44,6 +44,13 @@ export type MaritimeLayerFilters = {
   debouncedSearch: string;
 };
 
+export type PublicEventLayerFilters = {
+  /** Provider id, or "all". Public-event coverage is regional per provider. */
+  provider: string;
+  search: string;
+  debouncedSearch: string;
+};
+
 export type NaturalHazardLayerFilters = {
   /** Hazard source id, or "all". Each source has its own coverage. */
   source: string;
@@ -63,6 +70,9 @@ export type GlobalLayerContextValue = {
   maritimeFilters: MaritimeLayerFilters;
   setMaritimeProvider: (provider: string) => void;
   setMaritimeSearch: (search: string) => void;
+  publicEventFilters: PublicEventLayerFilters;
+  setPublicEventProvider: (provider: string) => void;
+  setPublicEventSearch: (search: string) => void;
   naturalHazardFilters: NaturalHazardLayerFilters;
   setNaturalHazardSource: (source: string) => void;
   setNaturalHazardSearch: (search: string) => void;
@@ -92,6 +102,11 @@ export function GlobalLayerProvider({
   const [maritimeProvider, setMaritimeProviderState] = useState<string>("all");
   const [maritimeSearch, setMaritimeSearch] = useState("");
   const [debouncedMaritimeSearch, setDebouncedMaritimeSearch] = useState("");
+  const [publicEventProvider, setPublicEventProviderState] =
+    useState<string>("all");
+  const [publicEventSearch, setPublicEventSearch] = useState("");
+  const [debouncedPublicEventSearch, setDebouncedPublicEventSearch] =
+    useState("");
   const [naturalHazardSource, setNaturalHazardSourceState] =
     useState<string>("all");
   const [naturalHazardSearch, setNaturalHazardSearch] = useState("");
@@ -115,6 +130,14 @@ export function GlobalLayerProvider({
     );
     return () => window.clearTimeout(timer);
   }, [maritimeSearch]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setDebouncedPublicEventSearch(publicEventSearch),
+      250,
+    );
+    return () => window.clearTimeout(timer);
+  }, [publicEventSearch]);
 
   useEffect(() => {
     const timer = window.setTimeout(
@@ -187,6 +210,22 @@ export function GlobalLayerProvider({
     [cameraCountry, cameraProvider, cameraSearch, debouncedCameraSearch],
   );
 
+  const setPublicEventProvider = useCallback((provider: string) => {
+    setPublicEventProviderState(provider);
+    setSelectedObservation((selected) =>
+      clearLayerSelection(selected, "public-events"),
+    );
+  }, []);
+
+  const publicEventFilters = useMemo<PublicEventLayerFilters>(
+    () => ({
+      provider: publicEventProvider,
+      search: publicEventSearch,
+      debouncedSearch: debouncedPublicEventSearch,
+    }),
+    [publicEventProvider, publicEventSearch, debouncedPublicEventSearch],
+  );
+
   const setNaturalHazardSource = useCallback((source: string) => {
     setNaturalHazardSourceState(source);
     setSelectedObservation((selected) =>
@@ -225,6 +264,9 @@ export function GlobalLayerProvider({
       maritimeFilters,
       setMaritimeProvider,
       setMaritimeSearch,
+      publicEventFilters,
+      setPublicEventProvider,
+      setPublicEventSearch,
       naturalHazardFilters,
       setNaturalHazardSource,
       setNaturalHazardSearch,
@@ -242,6 +284,8 @@ export function GlobalLayerProvider({
       setCameraProvider,
       maritimeFilters,
       setMaritimeProvider,
+      publicEventFilters,
+      setPublicEventProvider,
       naturalHazardFilters,
       setNaturalHazardSource,
       selectedObservation,

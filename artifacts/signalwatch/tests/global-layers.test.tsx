@@ -15,7 +15,7 @@ import {
   isValidCoordinates,
   layerSample,
   normalizeCameraRecord,
-  normalizePublicEvent,
+  normalizePublicEventRecord,
   selectEnabledLayerObservations,
   selectRenderableObservations,
 } from "../src/lib/global-layers";
@@ -77,23 +77,57 @@ const providerStatus = (
   message: "Fixture catalogue state",
 });
 
+const eventProviderStatus = (id = "qldtraffic") =>
+  ({
+    id,
+    name: `${id} provider`,
+    attribution: `${id} attribution`,
+    licence: "CC BY 4.0",
+    licenceUrl: "https://creativecommons.org/licenses/by/4.0/",
+    catalogueUrl: "https://example.test/docs",
+    status: "available",
+    coverage: { scope: "regional", regions: ["region"], note: "note" },
+    eventCount: 1,
+    checkedAt: "2026-09-30T04:00:00.000Z",
+    message: "ok",
+  }) as never;
+
 const eventRecord = (
   id: string,
   latitude: number | null = -33.87,
   longitude: number | null = 151.2,
-): BriefingEvent => ({
-  id,
-  title: `Event ${id}`,
-  category: "public",
-  source: "Fixture News",
-  sourceKind: "news",
-  url: `https://news.example.test/${id}`,
-  occurredAt: "2026-09-30T00:00:00.000Z",
-  latitude,
-  longitude,
-  magnitude: null,
-  detail: "Fixture event",
-});
+  provider = "qldtraffic",
+) =>
+  ({
+    id,
+    provider,
+    eventType: "Crash",
+    eventSubtype: null,
+    eventDueTo: null,
+    title: `Event ${id}`,
+    description: "Fixture event",
+    advice: null,
+    latitude,
+    longitude,
+    locationDerived: false,
+    locationNote: null,
+    sourcePriority: null,
+    status: "Published",
+    impact: null,
+    roadSummary: null,
+    publishedAt: "2026-09-30T00:00:00.000Z",
+    lastUpdatedAt: "2026-09-30T00:00:00.000Z",
+    startedAt: null,
+    endsAt: null,
+    receivedAt: "2026-09-30T04:00:00.000Z",
+    sourceUrl: `https://authority.example.test/${id}`,
+    suppliedBy: null,
+    attribution: "Fixture authority",
+    licence: "CC BY 4.0",
+  }) as never;
+
+const normalizeEvent = (record: unknown) =>
+  normalizePublicEventRecord(record as never, [eventProviderStatus()]);
 
 test("country/provider controls request only supported catalogues", () => {
   assert.deepEqual(cameraProviderIdsForFilter("AU", "all"), [
@@ -118,7 +152,7 @@ test("layer toggles filter only their own records and clear only their selection
     cameraRecord("qld-1"),
     [providerStatus("qld-tmr")],
   );
-  const event = normalizePublicEvent(eventRecord("evt-1"));
+  const event = normalizeEvent(eventRecord("evt-1"));
   assert.ok(camera);
   assert.ok(event);
 
@@ -186,14 +220,17 @@ test("normalized camera identity and provenance survive map, list, and filter us
   assert.equal(fromMap.record.feedStatus, "not-probed");
 
   const event = eventRecord("incident-7");
-  const fromGlobe = normalizePublicEvent(event);
-  const fromFilteredList = normalizePublicEvent({ ...event });
+  const fromGlobe = normalizeEvent(event);
+  const fromFilteredList = normalizeEvent({ ...(event as object) });
   assert.ok(fromGlobe);
   assert.ok(fromFilteredList);
   assert.equal(fromGlobe.key, "public-events:incident-7");
   assert.equal(fromGlobe.id, fromFilteredList.id);
-  assert.equal(fromGlobe.providerName, event.source);
-  assert.equal(fromGlobe.sourceUrl, event.url);
+  assert.equal(fromGlobe.providerId, "qldtraffic");
+  assert.equal(
+    fromGlobe.sourceUrl,
+    "https://authority.example.test/incident-7",
+  );
 });
 
 test("globe camera sample is capped, provider-balanced, non-destructive, and selection-aware", () => {
@@ -212,7 +249,7 @@ test("globe camera sample is capped, provider-balanced, non-destructive, and sel
     ),
   ].filter((item) => item !== null);
   const events = Array.from({ length: 205 }, (_, index) =>
-    normalizePublicEvent(eventRecord(`event-${index}`)),
+    normalizeEvent(eventRecord(`event-${index}`)),
   ).filter((item) => item !== null);
   const sourceIds = cameras.map((item) => item.id);
 
@@ -228,7 +265,10 @@ test("globe camera sample is capped, provider-balanced, non-destructive, and sel
   assert.equal(layerSample(normalSample.samples, "cameras")?.total, 300);
   assert.equal(layerSample(normalSample.samples, "cameras")?.shown, 180);
   assert.equal(layerSample(normalSample.samples, "cameras")?.omitted, 120);
-  assert.equal(layerSample(normalSample.samples, "public-events")?.omitted, 0);
+  // Public events now carries its own provider-balanced sampling cap.
+  assert.equal(layerSample(normalSample.samples, "public-events")?.total, 205);
+  assert.equal(layerSample(normalSample.samples, "public-events")?.shown, 200);
+  assert.equal(layerSample(normalSample.samples, "public-events")?.omitted, 5);
   assert.equal(
     cameraSample.filter((item) => item.providerId === "qld-tmr").length,
     120,
@@ -238,10 +278,12 @@ test("globe camera sample is capped, provider-balanced, non-destructive, and sel
       .length,
     60,
   );
+  // Public events is sampled on the globe now that it is a real provider-backed
+  // layer, so the cap applies to it exactly as it does to cameras.
   assert.equal(
     normalSample.observations.filter((item) => item.kind === "public-event")
       .length,
-    205,
+    200,
   );
   assert.deepEqual(cameras.map((item) => item.id), sourceIds);
 
@@ -265,16 +307,19 @@ test("globe camera sample is capped, provider-balanced, non-destructive, and sel
 });
 
 test("only source-coordinate events normalize to distinct spatial records", () => {
-  const located = normalizePublicEvent(eventRecord("located"));
-  const headlineOnly = normalizePublicEvent(eventRecord("headline", null, null));
-  const invalidLocation = normalizePublicEvent(eventRecord("invalid", 95, 0));
+  const located = normalizeEvent(eventRecord("located"));
+  const headlineOnly = normalizeEvent(eventRecord("headline", null, null));
+  const invalidLocation = normalizeEvent(eventRecord("invalid", 95, 0));
   assert.ok(located);
   assert.equal(headlineOnly, null);
   assert.equal(invalidLocation, null);
   assert.equal(eventPoint(null, null), null);
   assert.equal(located.kind, "public-event");
   assert.equal(located.layerId, "public-events");
-  assert.equal(located.sourceUrl, "https://news.example.test/located");
+  assert.equal(
+    located.sourceUrl,
+    "https://authority.example.test/located",
+  );
 
   assert.equal(isValidCoordinates(90, 180), true);
   assert.equal(isValidCoordinates(-91, 0), false);
@@ -345,13 +390,18 @@ test("operational versus illustrative status stays explicit in workspace data an
         publicEventLayerPanel({
           enabled: true,
           onEnabledChange: () => {},
+          provider: "all",
+          onProviderChange: () => {},
+          search: "",
+          onSearchChange: () => {},
+          providers: [],
+          matchedCount: 0,
+          returnedCount: 0,
           isLoading: false,
-          isError: false,
-          locatedCount: 0,
-          recordCount: 0,
-          headlineCount: 0,
-          sourcesOnline: 0,
-          sourceCount: 0,
+          isFetching: false,
+          hasError: false,
+          isUnavailable: false,
+          isTruncated: false,
         }),
       ]}
     />,
