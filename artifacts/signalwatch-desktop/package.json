@@ -1,0 +1,15 @@
+{
+  "name": "@workspace/signalwatch-desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tauri desktop shell for the canonical Signalwatch web client.",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "verify:desktop": "node scripts/verify-desktop.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.2"
+  }
+}
