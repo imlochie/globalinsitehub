@@ -88,12 +88,14 @@ for (const [relative, dimensions] of requiredPngs) {
   );
 }
 
-// --- API reachability from a custom origin --------------------------------
+// --- API reachability: the bundled sidecar ------------------------------
 /**
  * Tauri serves the frontend from tauri://localhost, where a relative "/api"
- * request has no server behind it. A desktop build therefore MUST supply
- * VITE_API_BASE_URL. This is checked as a build-time requirement so the
- * failure surfaces here rather than as an empty app.
+ * request has no server behind it. The shell therefore starts the real
+ * Signalwatch API from bundled resources on a runtime-chosen port and injects
+ * the origin as window.__SIGNALWATCH_API_BASE__.
+ *
+ * These checks verify that contract end to end, short of compiling Rust.
  */
 const mainTsx = await readFile(
   path.join(projectRoot, "..", "signalwatch", "src", "main.tsx"),
@@ -101,21 +103,91 @@ const mainTsx = await readFile(
 );
 assert.match(
   mainTsx,
+  /__SIGNALWATCH_API_BASE__/,
+  "the web client must honour the runtime-injected API origin",
+);
+assert.match(
+  mainTsx,
   /VITE_API_BASE_URL/,
-  "the web client must honour VITE_API_BASE_URL for packaged shells",
+  "the web client must still honour a build-time origin as a fallback",
 );
 
-const configuredBaseUrl = process.env.VITE_API_BASE_URL?.trim();
-if (process.env.VERIFY_DESKTOP_REQUIRE_API === "1") {
-  assert.ok(
-    configuredBaseUrl,
-    "VITE_API_BASE_URL must be set for a distributable desktop build",
+const libRs = await readFile(path.join(tauriDir, "src", "lib.rs"), "utf8");
+assert.match(libRs, /__SIGNALWATCH_API_BASE__/, "the shell must inject the API origin");
+assert.match(
+  libRs,
+  /127\.0\.0\.1:0/,
+  "the shell must request a free port rather than hardcoding one",
+);
+assert.match(
+  libRs,
+  /RunEvent::Exit/,
+  "the shell must terminate the API when the app exits",
+);
+
+assert.ok(
+  Array.isArray(config.bundle?.resources) &&
+    config.bundle.resources.some((entry) => entry.startsWith("resources/runtime")) &&
+    config.bundle.resources.some((entry) => entry.startsWith("resources/api")),
+  "the bundle must ship the Node runtime and the built API",
+);
+assert.match(
+  config.app?.security?.csp ?? "",
+  /connect-src[^;]*http:\/\/127\.0\.0\.1:\*/,
+  "CSP must allow the frontend to reach the loopback sidecar",
+);
+assert.match(
+  String(config.build?.beforeBuildCommand ?? ""),
+  /prepare-sidecar/,
+  "the build must prepare the sidecar before bundling",
+);
+
+// The prepared sidecar, when present, must actually run and serve the API.
+const runtimeName = process.platform === "win32" ? "node.exe" : "node";
+const runtimeBin = path.join(tauriDir, "resources", "runtime", runtimeName);
+const apiEntry = path.join(tauriDir, "resources", "api", "index.mjs");
+let sidecarChecked = false;
+try {
+  await stat(runtimeBin);
+  await stat(apiEntry);
+  sidecarChecked = true;
+} catch {
+  console.warn(
+    "  ! sidecar resources not prepared; run scripts/prepare-sidecar.mjs to verify it boots",
   );
-  assert.match(
-    configuredBaseUrl,
-    /^https?:\/\//,
-    "VITE_API_BASE_URL must be an absolute origin",
-  );
+}
+
+if (sidecarChecked && process.env.VERIFY_DESKTOP_BOOT_SIDECAR === "1") {
+  const { spawn } = await import("node:child_process");
+  const net = await import("node:net");
+  const port = await new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
+
+  const child = spawn(runtimeBin, [apiEntry], {
+    env: { ...process.env, PORT: String(port), NODE_ENV: "production" },
+    stdio: "ignore",
+  });
+  try {
+    const deadline = Date.now() + 20_000;
+    let healthy = false;
+    while (Date.now() < deadline && !healthy) {
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/api/healthz`);
+        healthy = response.ok;
+      } catch {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+    }
+    assert.ok(healthy, "the bundled sidecar must answer /api/healthz");
+  } finally {
+    child.kill();
+  }
 }
 
 // --- cost posture ---------------------------------------------------------
@@ -137,7 +209,8 @@ console.log(
     `  frontend     ${path.relative(projectRoot, frontendDist)}`,
     `  targets      ${targets.join(", ")}`,
     "  icons        icon.ico + 32/128/256 PNGs valid",
-    `  API base URL ${configuredBaseUrl ?? "not set (required for distributable builds)"}`,
+    `  API           bundled sidecar on a runtime-chosen loopback port`,
+    `  sidecar files ${sidecarChecked ? "prepared" : "NOT prepared (run prepare-sidecar.mjs)"}`,
     "  signing      none (unsigned, $0 posture)",
   ].join("\n"),
 );

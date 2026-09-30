@@ -7,29 +7,19 @@
     "frontendDist": "../../signalwatch/dist/public",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm --filter @workspace/signalwatch run dev",
-    "beforeBuildCommand": "pnpm --filter @workspace/signalwatch run build"
+    "beforeBuildCommand": "pnpm --filter @workspace/signalwatch run build && pnpm --filter @workspace/signalwatch-desktop exec node scripts/prepare-sidecar.mjs"
   },
   "app": {
-    "windows": [
-      {
-        "title": "Signalwatch",
-        "width": 1440,
-        "height": 900,
-        "minWidth": 960,
-        "minHeight": 640,
-        "resizable": true,
-        "fullscreen": false,
-        "theme": "Dark",
-        "backgroundColor": "#070a10"
-      }
-    ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://localhost:5000 https:; font-src 'self' data:"
+      "csp": "default-src 'self'; img-src 'self' data: blob: https: http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:* https:; font-src 'self' data:"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": [
+      "nsis",
+      "msi"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -44,6 +34,10 @@
       "nsis": {
         "installMode": "currentUser"
       }
-    }
+    },
+    "resources": [
+      "resources/runtime/*",
+      "resources/api/*"
+    ]
   }
 }

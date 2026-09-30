@@ -7,17 +7,27 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import './index.css';
 
 /**
- * API base URL.
+ * API base URL resolution, in priority order:
  *
- * In a browser the app is served from the same origin as the API, so relative
- * `/api/...` requests are correct and nothing is configured here. Packaged
- * shells (Tauri desktop, and later Capacitor) load the same assets from a
- * custom origin such as `tauri://localhost`, where a relative path has no API
- * behind it — so those builds must supply VITE_API_BASE_URL at build time.
+ *  1. `window.__SIGNALWATCH_API_BASE__` — injected at runtime by the Tauri
+ *     desktop shell, which starts the bundled API on a port chosen at launch.
+ *     A port picked at runtime cannot be expressed at build time.
+ *  2. `VITE_API_BASE_URL` — build-time origin for packaged shells that talk to
+ *     a fixed host.
+ *  3. Nothing — the browser case, where the app is served from the same origin
+ *     as the API and relative `/api/...` requests are already correct.
  *
- * Leaving it unset preserves existing browser behaviour exactly.
+ * Leaving both unset preserves existing browser behaviour exactly.
  */
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+declare global {
+  interface Window {
+    __SIGNALWATCH_API_BASE__?: string;
+  }
+}
+
+const runtimeApiBaseUrl =
+  typeof window !== 'undefined' ? window.__SIGNALWATCH_API_BASE__?.trim() : undefined;
+const apiBaseUrl = runtimeApiBaseUrl || import.meta.env.VITE_API_BASE_URL?.trim();
 if (apiBaseUrl) {
   setBaseUrl(apiBaseUrl);
 }
