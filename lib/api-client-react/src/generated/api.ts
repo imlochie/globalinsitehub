@@ -20,10 +20,12 @@ import type {
   GetMonitoringCamerasParams,
   GetMonitoringHazardsParams,
   GetMonitoringMaritimeParams,
+  GetMonitoringPublicEventsParams,
   HealthStatus,
   MonitoringBriefing,
   MonitoringCameras,
   MonitoringHazards,
+  MonitoringPublicEvents,
   MonitoringVessels
 } from './api.schemas';
 
@@ -460,6 +462,91 @@ export function useGetMonitoringHazards<TData = Awaited<ReturnType<typeof getMon
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMonitoringHazardsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMonitoringPublicEventsUrl = (params?: GetMonitoringPublicEventsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/monitoring/public-events?${stringifiedParams}` : `/api/monitoring/public-events`
+}
+
+/**
+ * Returns bounded civic incident records aggregated server-side from state road authority open-data feeds, plus per-provider health, licensing and explicit coverage metadata. Records are geolocated civic reporting: incidents, crashes, closures, roadworks, flooding-affected roads and major events. Categories are always the category the source assigned and are never inferred from wording, so a road closed by flooding stays a civic incident and is not reclassified as a natural hazard. Coverage is REGIONAL. A provider that is unavailable or unconfigured is reported as such and never suppresses the others.
+ * @summary List geolocated civic incidents from free, openly licensed authority feeds
+ */
+export const getMonitoringPublicEvents = async (params?: GetMonitoringPublicEventsParams, options?: Parameters<typeof customFetch>[1]): Promise<MonitoringPublicEvents> => {
+
+  return customFetch<MonitoringPublicEvents>(getGetMonitoringPublicEventsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMonitoringPublicEventsQueryKey = (params?: GetMonitoringPublicEventsParams,) => {
+    return [
+    `/api/monitoring/public-events`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMonitoringPublicEventsQueryOptions = <TData = Awaited<ReturnType<typeof getMonitoringPublicEvents>>, TError = ErrorType<unknown>>(params?: GetMonitoringPublicEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringPublicEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMonitoringPublicEventsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMonitoringPublicEvents>>> = ({ signal }) => getMonitoringPublicEvents(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMonitoringPublicEvents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMonitoringPublicEventsQueryResult = NonNullable<Awaited<ReturnType<typeof getMonitoringPublicEvents>>>
+export type GetMonitoringPublicEventsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List geolocated civic incidents from free, openly licensed authority feeds
+ */
+
+export function useGetMonitoringPublicEvents<TData = Awaited<ReturnType<typeof getMonitoringPublicEvents>>, TError = ErrorType<unknown>>(
+ params?: GetMonitoringPublicEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringPublicEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMonitoringPublicEventsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

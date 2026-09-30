@@ -185,6 +185,49 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MonitoringHazards"
+  /monitoring/public-events:
+    get:
+      operationId: getMonitoringPublicEvents
+      tags: [monitoring]
+      summary: List geolocated civic incidents from free, openly licensed authority feeds
+      description: >-
+        Returns bounded civic incident records aggregated server-side from state road
+        authority open-data feeds, plus per-provider health, licensing and explicit
+        coverage metadata. Records are geolocated civic reporting: incidents, crashes,
+        closures, roadworks, flooding-affected roads and major events. Categories are
+        always the category the source assigned and are never inferred from wording, so
+        a road closed by flooding stays a civic incident and is not reclassified as a
+        natural hazard. Coverage is REGIONAL. A provider that is unavailable or
+        unconfigured is reported as such and never suppresses the others.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Optional text filter applied to title, event type, road and locality.
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Provider id filter, e.g. qldtraffic or tfnsw.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of civic incident records to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 400
+      responses:
+        "200":
+          description: Bounded civic incidents with coverage and provider health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringPublicEvents"
 components:
   schemas:
     HealthStatus:
@@ -761,6 +804,231 @@ components:
           format: uri
         summary:
           type: ["string", "null"]
+    MonitoringPublicEvents:
+      type: object
+      required:
+        - generatedAt
+        - matchedCount
+        - returnedCount
+        - limit
+        - coverage
+        - providers
+        - events
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        matchedCount:
+          type: integer
+        returnedCount:
+          type: integer
+        limit:
+          type: integer
+        coverage:
+          $ref: "#/components/schemas/PublicEventCoverage"
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicEventProviderStatus"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicEventRecord"
+    PublicEventCoverage:
+      type: object
+      required:
+        - scope
+        - regions
+        - note
+      properties:
+        scope:
+          type: string
+          enum: [global, regional, local]
+          description: Derived from the providers actually supplying data. Never global.
+        regions:
+          type: array
+          items:
+            type: string
+        note:
+          type: string
+    PublicEventProviderStatus:
+      type: object
+      required:
+        - id
+        - name
+        - attribution
+        - licence
+        - licenceUrl
+        - catalogueUrl
+        - status
+        - coverage
+        - eventCount
+        - checkedAt
+        - message
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        attribution:
+          type: string
+        licence:
+          type: string
+        licenceUrl:
+          type: string
+          format: uri
+        catalogueUrl:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [available, unavailable, unconfigured]
+          description: >-
+            "unconfigured" means the provider needs a credential Signalwatch does not
+            have. It is a configuration state, not a failure, and never suppresses the
+            other providers.
+        coverage:
+          $ref: "#/components/schemas/PublicEventCoverage"
+        eventCount:
+          type: integer
+        checkedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+    PublicEventImpact:
+      type: ["object", "null"]
+      description: Present only when the source publishes impact details.
+      properties:
+        direction:
+          type: string
+          nullable: true
+        towards:
+          type: string
+          nullable: true
+        impactType:
+          type: string
+          nullable: true
+        impactSubtype:
+          type: string
+          nullable: true
+        delay:
+          type: string
+          nullable: true
+    PublicEventRoadSummary:
+      type: ["object", "null"]
+      description: Present only when the source publishes road details.
+      properties:
+        roadName:
+          type: string
+          nullable: true
+        locality:
+          type: string
+          nullable: true
+        postcode:
+          type: string
+          nullable: true
+        localGovernmentArea:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+    PublicEventRecord:
+      type: object
+      required:
+        - id
+        - provider
+        - eventType
+        - title
+        - latitude
+        - longitude
+        - locationDerived
+        - receivedAt
+        - sourceUrl
+        - attribution
+        - licence
+      properties:
+        id:
+          type: string
+          description: Stable identity in the form "<provider>:<provider record id>".
+        provider:
+          type: string
+        eventType:
+          type: string
+          description: Category exactly as the source classifies it. Never inferred from text.
+        eventSubtype:
+          type: string
+          nullable: true
+        eventDueTo:
+          type: string
+          nullable: true
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        advice:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+        longitude:
+          type: number
+        locationDerived:
+          type: boolean
+          description: >-
+            True when the coordinate was averaged from a multi-segment geometry rather
+            than published as a single point. Such markers are representative
+            locations, not surveyed coordinates.
+        locationNote:
+          type: string
+          nullable: true
+        sourcePriority:
+          type: string
+          nullable: true
+          description: >-
+            The source's own priority label. It is not a severity score, is never
+            numeric, and is never compared across providers or against hazard
+            magnitudes.
+        status:
+          type: string
+          nullable: true
+        impact:
+          $ref: "#/components/schemas/PublicEventImpact"
+        roadSummary:
+          $ref: "#/components/schemas/PublicEventRoadSummary"
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endsAt:
+          type: string
+          format: date-time
+          nullable: true
+        receivedAt:
+          type: string
+          format: date-time
+          description: When the Signalwatch API server received the record.
+        sourceUrl:
+          type: string
+          format: uri
+        suppliedBy:
+          type: string
+          nullable: true
+          description: The body that originally supplied the record, where it differs from the provider.
+        attribution:
+          type: string
+        licence:
+          type: string
     MonitoringEvent:
       type: object
       required:

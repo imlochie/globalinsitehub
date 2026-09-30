@@ -420,6 +420,120 @@ export interface MonitoringHazards {
   hazards: HazardRecord[];
 }
 
+/**
+ * Derived from the providers actually supplying data. Never global.
+ */
+export type PublicEventCoverageScope = typeof PublicEventCoverageScope[keyof typeof PublicEventCoverageScope];
+
+
+export const PublicEventCoverageScope = {
+  global: 'global',
+  regional: 'regional',
+  local: 'local',
+} as const;
+
+export interface PublicEventCoverage {
+  /** Derived from the providers actually supplying data. Never global. */
+  scope: PublicEventCoverageScope;
+  regions: string[];
+  note: string;
+}
+
+/**
+ * "unconfigured" means the provider needs a credential Signalwatch does not have. It is a configuration state, not a failure, and never suppresses the other providers.
+ */
+export type PublicEventProviderStatusStatus = typeof PublicEventProviderStatusStatus[keyof typeof PublicEventProviderStatusStatus];
+
+
+export const PublicEventProviderStatusStatus = {
+  available: 'available',
+  unavailable: 'unavailable',
+  unconfigured: 'unconfigured',
+} as const;
+
+export interface PublicEventProviderStatus {
+  id: string;
+  name: string;
+  attribution: string;
+  licence: string;
+  licenceUrl: string;
+  catalogueUrl: string;
+  /** "unconfigured" means the provider needs a credential Signalwatch does not have. It is a configuration state, not a failure, and never suppresses the other providers. */
+  status: PublicEventProviderStatusStatus;
+  coverage: PublicEventCoverage;
+  eventCount: number;
+  checkedAt: string;
+  message: string;
+}
+
+/**
+ * Present only when the source publishes impact details.
+ * @nullable
+ */
+export type PublicEventImpact = {
+  direction?: string | null;
+  towards?: string | null;
+  impactType?: string | null;
+  impactSubtype?: string | null;
+  delay?: string | null;
+} | null;
+
+/**
+ * Present only when the source publishes road details.
+ * @nullable
+ */
+export type PublicEventRoadSummary = {
+  roadName?: string | null;
+  locality?: string | null;
+  postcode?: string | null;
+  localGovernmentArea?: string | null;
+  district?: string | null;
+} | null;
+
+export interface PublicEventRecord {
+  /** Stable identity in the form "<provider>:<provider record id>". */
+  id: string;
+  provider: string;
+  /** Category exactly as the source classifies it. Never inferred from text. */
+  eventType: string;
+  eventSubtype?: string | null;
+  eventDueTo?: string | null;
+  title: string;
+  description?: string | null;
+  advice?: string | null;
+  latitude: number;
+  longitude: number;
+  /** True when the coordinate was averaged from a multi-segment geometry rather than published as a single point. Such markers are representative locations, not surveyed coordinates. */
+  locationDerived: boolean;
+  locationNote?: string | null;
+  /** The source's own priority label. It is not a severity score, is never numeric, and is never compared across providers or against hazard magnitudes. */
+  sourcePriority?: string | null;
+  status?: string | null;
+  impact?: PublicEventImpact | null;
+  roadSummary?: PublicEventRoadSummary | null;
+  publishedAt?: string | null;
+  lastUpdatedAt?: string | null;
+  startedAt?: string | null;
+  endsAt?: string | null;
+  /** When the Signalwatch API server received the record. */
+  receivedAt: string;
+  sourceUrl: string;
+  /** The body that originally supplied the record, where it differs from the provider. */
+  suppliedBy?: string | null;
+  attribution: string;
+  licence: string;
+}
+
+export interface MonitoringPublicEvents {
+  generatedAt: string;
+  matchedCount: number;
+  returnedCount: number;
+  limit: number;
+  coverage: PublicEventCoverage;
+  providers: PublicEventProviderStatus[];
+  events: PublicEventRecord[];
+}
+
 export type GetMonitoringBriefingParams = {
 /**
  * Optional text filter applied to headlines and events.
@@ -484,6 +598,23 @@ source?: string;
  * Maximum number of hazard records to return.
  * @minimum 1
  * @maximum 500
+ */
+limit?: number;
+};
+
+export type GetMonitoringPublicEventsParams = {
+/**
+ * Optional text filter applied to title, event type, road and locality.
+ */
+q?: string;
+/**
+ * Provider id filter, e.g. qldtraffic or tfnsw.
+ */
+provider?: string;
+/**
+ * Maximum number of civic incident records to return.
+ * @minimum 1
+ * @maximum 1000
  */
 limit?: number;
 };

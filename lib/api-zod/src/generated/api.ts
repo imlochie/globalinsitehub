@@ -271,3 +271,87 @@ export const GetMonitoringHazardsResponse = zod.object({
 })
 
 
+/**
+ * Returns bounded civic incident records aggregated server-side from state road authority open-data feeds, plus per-provider health, licensing and explicit coverage metadata. Records are geolocated civic reporting: incidents, crashes, closures, roadworks, flooding-affected roads and major events. Categories are always the category the source assigned and are never inferred from wording, so a road closed by flooding stays a civic incident and is not reclassified as a natural hazard. Coverage is REGIONAL. A provider that is unavailable or unconfigured is reported as such and never suppresses the others.
+ * @summary List geolocated civic incidents from free, openly licensed authority feeds
+ */
+export const getMonitoringPublicEventsQueryLimitDefault = 400;
+export const getMonitoringPublicEventsQueryLimitMax = 1000;
+
+
+
+export const GetMonitoringPublicEventsQueryParams = zod.object({
+  "q": zod.coerce.string().optional().describe('Optional text filter applied to title, event type, road and locality.'),
+  "provider": zod.coerce.string().optional().describe('Provider id filter, e.g. qldtraffic or tfnsw.'),
+  "limit": zod.coerce.number().int().min(1).max(getMonitoringPublicEventsQueryLimitMax).default(getMonitoringPublicEventsQueryLimitDefault).describe('Maximum number of civic incident records to return.')
+})
+
+export const GetMonitoringPublicEventsResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "matchedCount": zod.number().int(),
+  "returnedCount": zod.number().int(),
+  "limit": zod.number().int(),
+  "coverage": zod.object({
+  "scope": zod.enum(['global', 'regional', 'local']).describe('Derived from the providers actually supplying data. Never global.'),
+  "regions": zod.array(zod.string()),
+  "note": zod.string()
+}),
+  "providers": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "attribution": zod.string(),
+  "licence": zod.string(),
+  "licenceUrl": zod.string().url(),
+  "catalogueUrl": zod.string().url(),
+  "status": zod.enum(['available', 'unavailable', 'unconfigured']).describe('"unconfigured" means the provider needs a credential Signalwatch does not have. It is a configuration state, not a failure, and never suppresses the other providers.'),
+  "coverage": zod.object({
+  "scope": zod.enum(['global', 'regional', 'local']).describe('Derived from the providers actually supplying data. Never global.'),
+  "regions": zod.array(zod.string()),
+  "note": zod.string()
+}),
+  "eventCount": zod.number().int(),
+  "checkedAt": zod.coerce.date(),
+  "message": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.string().describe('Stable identity in the form "<provider>:<provider record id>".'),
+  "provider": zod.string(),
+  "eventType": zod.string().describe('Category exactly as the source classifies it. Never inferred from text.'),
+  "eventSubtype": zod.string().nullish(),
+  "eventDueTo": zod.string().nullish(),
+  "title": zod.string(),
+  "description": zod.string().nullish(),
+  "advice": zod.string().nullish(),
+  "latitude": zod.number(),
+  "longitude": zod.number(),
+  "locationDerived": zod.boolean().describe('True when the coordinate was averaged from a multi-segment geometry rather than published as a single point. Such markers are representative locations, not surveyed coordinates.'),
+  "locationNote": zod.string().nullish(),
+  "sourcePriority": zod.string().nullish().describe('The source\'s own priority label. It is not a severity score, is never numeric, and is never compared across providers or against hazard magnitudes.'),
+  "status": zod.string().nullish(),
+  "impact": zod.object({
+  "direction": zod.string().nullish(),
+  "towards": zod.string().nullish(),
+  "impactType": zod.string().nullish(),
+  "impactSubtype": zod.string().nullish(),
+  "delay": zod.string().nullish()
+}).nullish().describe('Present only when the source publishes impact details.'),
+  "roadSummary": zod.object({
+  "roadName": zod.string().nullish(),
+  "locality": zod.string().nullish(),
+  "postcode": zod.string().nullish(),
+  "localGovernmentArea": zod.string().nullish(),
+  "district": zod.string().nullish()
+}).nullish().describe('Present only when the source publishes road details.'),
+  "publishedAt": zod.coerce.date().nullish(),
+  "lastUpdatedAt": zod.coerce.date().nullish(),
+  "startedAt": zod.coerce.date().nullish(),
+  "endsAt": zod.coerce.date().nullish(),
+  "receivedAt": zod.coerce.date().describe('When the Signalwatch API server received the record.'),
+  "sourceUrl": zod.string().url(),
+  "suppliedBy": zod.string().nullish().describe('The body that originally supplied the record, where it differs from the provider.'),
+  "attribution": zod.string(),
+  "licence": zod.string()
+}))
+})
+
+
