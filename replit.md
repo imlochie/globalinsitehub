@@ -34,6 +34,16 @@ and a shared record inspector with provenance intact.
 - `artifacts/api-server` — Express API, including the camera provider adapters
 - `lib/api-spec/openapi.yaml` — API contract; `pnpm --filter @workspace/api-spec run codegen` regenerates the client
 - `research/` — provider research and evidence (aircraft providers remain unresolved)
+- `research/future-concepts.md` — **idea vault**: captured product concepts that are
+  explicitly *not* implemented. Nothing there has a `layerRegistry` entry, provider,
+  endpoint or marker. A concept only becomes a layer after passing the provider gate
+  (source legitimacy, licence, feasibility, freshness, coverage, $0 recurring cost,
+  and a privacy/safety review where relevant). Currently holds Registry / Civic
+  Assets, Conflict-Affected Camera Coverage (research-only) and Traffic Intelligence
+  (restricted — number-plate recognition, plate databases and cross-camera vehicle
+  tracking are prohibited, not deferred). Backlog statuses are IDEA / RESEARCHING /
+  CONDITIONAL / READY / IMPLEMENTED / BLOCKED; `OPERATIONAL` is reserved for real
+  verified layers.
 
 ## Architecture decisions
 
