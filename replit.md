@@ -22,11 +22,31 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/signalwatch` — Signalwatch workspace UI (Vite + React)
+  - `src/lib/layer-registry.ts` — **source of truth for every operational/planned layer**
+  - `src/lib/global-layers.ts` — normalized observation model, provider adapters, generic selection/sampling
+  - `src/hooks/layer-sources/*` — per-layer data bindings (queries + normalization)
+  - `src/components/layer-panels/*`, `src/components/observation-details/*` — optional per-layer presentation
+  - `docs/global-layer-engine.md` — **Global Layer Engine architecture and how to add a layer**
+- `artifacts/api-server` — Express API, including the camera provider adapters
+- `lib/api-spec/openapi.yaml` — API contract; `pnpm --filter @workspace/api-spec run codegen` regenerates the client
+- `research/` — provider research and evidence (aircraft providers remain unresolved)
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The Global Layer Engine is registry-driven: layers are described once in
+  `src/lib/layer-registry.ts` (label, status, capabilities, providers, sampling) and
+  shared state/controls/globe/map/inspector consume that metadata. Shared code must not
+  branch on literal layer ids such as `"cameras"` or `"public-events"`.
+- Static layer definitions and runtime layer state are separate: definitions carry no
+  mutable state; `GlobalLayerProvider` holds enablement, filters and the shared selection.
+- Observations share one base shape (identity, coordinates, provenance, freshness,
+  attribution) plus a layer-specific specialisation; provider provenance is never
+  flattened away to simplify types.
+- Data acquisition follows layer enablement — a disabled layer starts no queries.
+- Planned layers (aircraft, maritime, satellites, natural hazards, weather,
+  infrastructure) are registered as `status: "planned"` with no providers. Aircraft stays
+  unimplemented until provider terms are confirmed (`research/`).
 
 ## Product
 
@@ -38,7 +58,11 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Signalwatch's Vite config requires `PORT` and `BASE_PATH` env vars, also for `vite build`.
+- Adding a layer: definition → adapter/normalizer → layer source → (optional) panel and
+  inspector body. See `artifacts/signalwatch/docs/global-layer-engine.md`.
+- `tests/layer-registry.test.tsx` fails the build if shared surfaces reintroduce
+  hard-coded camera/event branching.
 
 ## Pointers
 
