@@ -13,11 +13,14 @@ import {
   clearLayerSelection,
   createCameraLayerProviderAdapter,
   isValidCoordinates,
+  layerSample,
   normalizeCameraRecord,
   normalizePublicEvent,
   selectEnabledLayerObservations,
-  selectGlobeObservations,
+  selectRenderableObservations,
 } from "../src/lib/global-layers";
+import { cameraLayerPanel } from "../src/components/layer-panels/camera-layer-panel";
+import { publicEventLayerPanel } from "../src/components/layer-panels/public-event-layer-panel";
 import { CameraList } from "../src/components/camera-list";
 import { eventPoint, type BriefingEvent } from "../src/lib/monitoring";
 import { sampleUpdates, sectors } from "../src/lib/sectors";
@@ -122,21 +125,21 @@ test("layer toggles filter only their own records and clear only their selection
   assert.deepEqual(
     selectEnabledLayerObservations(both, {
       cameras: false,
-      publicEvents: true,
+      "public-events": true,
     }).map((item) => item.layerId),
     ["public-events"],
   );
   assert.deepEqual(
     selectEnabledLayerObservations(both, {
       cameras: true,
-      publicEvents: false,
+      "public-events": false,
     }).map((item) => item.layerId),
     ["cameras"],
   );
   assert.deepEqual(
     selectEnabledLayerObservations(both, {
       cameras: false,
-      publicEvents: false,
+      "public-events": false,
     }),
     [],
   );
@@ -182,7 +185,7 @@ test("normalized camera identity and provenance survive map, list, and filter us
   assert.ok(fromFilteredList);
   assert.equal(fromGlobe.key, "public-events:incident-7");
   assert.equal(fromGlobe.id, fromFilteredList.id);
-  assert.equal(fromGlobe.sourceName, event.source);
+  assert.equal(fromGlobe.providerName, event.source);
   assert.equal(fromGlobe.sourceUrl, event.url);
 });
 
@@ -206,14 +209,19 @@ test("globe camera sample is capped, provider-balanced, non-destructive, and sel
   ).filter((item) => item !== null);
   const sourceIds = cameras.map((item) => item.id);
 
-  const normalSample = selectGlobeObservations([...cameras, ...events], null);
+  const normalSample = selectRenderableObservations(
+    [...cameras, ...events],
+    null,
+  );
   const cameraSample = normalSample.observations.filter(
     (item) => item.kind === "camera",
   );
   assert.equal(cameraSample.length, 180);
   assert.ok(cameraSample.length <= 180);
-  assert.equal(normalSample.cameraTotal, 300);
-  assert.equal(normalSample.cameraOmitted, 120);
+  assert.equal(layerSample(normalSample.samples, "cameras")?.total, 300);
+  assert.equal(layerSample(normalSample.samples, "cameras")?.shown, 180);
+  assert.equal(layerSample(normalSample.samples, "cameras")?.omitted, 120);
+  assert.equal(layerSample(normalSample.samples, "public-events")?.omitted, 0);
   assert.equal(
     cameraSample.filter((item) => item.providerId === "qld-tmr").length,
     120,
@@ -231,7 +239,7 @@ test("globe camera sample is capped, provider-balanced, non-destructive, and sel
   assert.deepEqual(cameras.map((item) => item.id), sourceIds);
 
   const selectedId = "a-239";
-  const selectedSample = selectGlobeObservations([...cameras, ...events], {
+  const selectedSample = selectRenderableObservations([...cameras, ...events], {
     layerId: "cameras",
     id: selectedId,
   });
@@ -241,7 +249,7 @@ test("globe camera sample is capped, provider-balanced, non-destructive, and sel
     ),
   );
   assert.equal(
-    selectGlobeObservations([...cameras, ...events], null).observations.some(
+    selectRenderableObservations([...cameras, ...events], null).observations.some(
       (item) => item.kind === "camera" && item.id === selectedId,
     ),
     false,
@@ -307,36 +315,38 @@ test("operational versus illustrative status stays explicit in workspace data an
   const staleProvider = providerStatus("qld-tmr", "stale");
   const markup = renderToStaticMarkup(
     <GlobalLayerControl
-      cameras={{
-        enabled: true,
-        onEnabledChange: () => {},
-        country: "AU",
-        onCountryChange: () => {},
-        provider: "all",
-        onProviderChange: () => {},
-        search: "",
-        onSearchChange: () => {},
-        providers: [staleProvider],
-        requestedProviderIds: ["qld-tmr"],
-        matchedCount: 0,
-        returnedCount: 0,
-        isLoading: false,
-        isFetching: false,
-        hasError: true,
-        isUnavailable: false,
-        isTruncated: false,
-      }}
-      publicEvents={{
-        enabled: true,
-        onEnabledChange: () => {},
-        isLoading: false,
-        isError: false,
-        locatedCount: 0,
-        recordCount: 0,
-        headlineCount: 0,
-        sourcesOnline: 0,
-        sourceCount: 0,
-      }}
+      layers={[
+        cameraLayerPanel({
+          enabled: true,
+          onEnabledChange: () => {},
+          country: "AU",
+          onCountryChange: () => {},
+          provider: "all",
+          onProviderChange: () => {},
+          search: "",
+          onSearchChange: () => {},
+          providers: [staleProvider],
+          requestedProviderIds: ["qld-tmr"],
+          matchedCount: 0,
+          returnedCount: 0,
+          isLoading: false,
+          isFetching: false,
+          hasError: true,
+          isUnavailable: false,
+          isTruncated: false,
+        }),
+        publicEventLayerPanel({
+          enabled: true,
+          onEnabledChange: () => {},
+          isLoading: false,
+          isError: false,
+          locatedCount: 0,
+          recordCount: 0,
+          headlineCount: 0,
+          sourcesOnline: 0,
+          sourceCount: 0,
+        }),
+      ]}
     />,
   );
   assert.match(markup, /data-testid="toggle-global-layer-cameras"/);
