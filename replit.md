@@ -1,6 +1,9 @@
-# [Project name]
+# Signalwatch
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Signalwatch is a public-source situational-awareness workspace: it ingests openly
+published records (traffic-camera catalogues, public news/event briefings), normalizes
+them into one observation model, and lets an analyst inspect them on a globe, a 2D map
+and a shared record inspector with provenance intact.
 
 ## Run & Operate
 
@@ -50,11 +53,24 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- `/` — workspace: globe view of live public-source observations plus illustrative sector
+  markers, global layer controls, and the shared observation inspector.
+- `/map` — detailed Leaflet map with event and camera lists, sharing the same layer
+  state, selection and inspector as the workspace.
+- `/monitoring`, `/sources` — briefing and source-availability views.
+- Operational layers today: public cameras (Queensland TMR, Transport for NSW,
+  OpenTrafficCamMap) and public events/news. Camera catalogue entries are listings only —
+  Signalwatch never probes or proxies an individual feed, and catalogue status is always
+  shown separately from feed reachability.
+- Aircraft, maritime, satellites, natural hazards, weather and infrastructure are
+  registered as planned layers with no data source connected.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep the product honest: no fabricated data, provider health or freshness; planned
+  layers must never be presented as operational.
+- Aircraft stays unimplemented until provider terms/rights are confirmed (`research/`).
+- Prefer small, focused commits (refactor / test / docs separated).
 
 ## Gotchas
 
