@@ -391,3 +391,18 @@ fetch failed."` — correct behaviour for an unreachable provider, and silent
 about the weather.
 
 **The first live provider check is the Windows/networked runtime.**
+
+---
+
+## Australian weather sources
+
+Researched separately at Checkpoint C4 and recorded in
+`providers/australian-weather-admission-research.md`. Nothing from that pass
+is admitted; it is research only.
+
+The single finding that affects this document: **Australian radar imagery has
+no compliant $0 path.** BOM operates the national radar network and gates
+real-time radar behind a paid data licence agreement, reconfirmed against
+current pages on 2 October 2026. The NOAA coverage model therefore stands
+unchanged — five areas, none of them Australian — and Australia must continue
+to report *no radar source here*.
