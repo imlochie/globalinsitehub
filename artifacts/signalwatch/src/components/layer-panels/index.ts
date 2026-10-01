@@ -6,6 +6,7 @@
  * layer-agnostic.
  */
 import type { useGlobalLayerData } from '@/hooks/use-global-layer-data';
+import { orderLayersForProfile } from '@/lib/regional-priority';
 import { cameraLayerPanel } from './camera-layer-panel';
 import { maritimeLayerPanel } from './maritime-layer-panel';
 import { naturalHazardLayerPanel } from './natural-hazard-layer-panel';
@@ -139,5 +140,11 @@ export function buildLayerPanels(layerData: LayerData): LayerPanelModel[] {
     );
   }
 
-  return panels;
+  // Presentation order only. `orderLayersForProfile` drops ids it does not
+  // recognise and keeps unlisted layers in registry order, so a profile can
+  // never add, remove or promote a layer — only reorder the ones that the
+  // registry already admitted.
+  return orderLayersForProfile(
+    panels.map((panel) => ({ ...panel, id: panel.definition.id })),
+  ).map(({ id: _ignored, ...panel }) => panel as LayerPanelModel);
 }

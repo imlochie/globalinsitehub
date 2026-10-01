@@ -3,8 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CameraRecord } from "@workspace/api-client-react";
 import type { BriefingEvent } from "@/lib/monitoring";
 import {
-  MAP_DEFAULT_CENTER,
-  MAP_DEFAULT_ZOOM,
   MAP_FOCUS_ZOOM,
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
@@ -13,6 +11,10 @@ import {
   scaleBandForZoom,
   type MapScaleBand,
 } from "@/lib/map-scale";
+import {
+  MAP_DEFAULT_CENTER,
+  MAP_DEFAULT_ZOOM,
+} from "@/lib/regional-priority";
 import {
   buildWmsLayerOptions,
   imageryRenderSignature,

@@ -92,9 +92,13 @@ export const MAP_MIN_ZOOM = MAP_SCALE_BAND_ZOOM.global.minZoom;
 /** Highest zoom the map allows. */
 export const MAP_MAX_ZOOM = MAP_SCALE_BAND_ZOOM.streetContext.maxZoom;
 
-/** Opening view: the whole world, which is the `global` question. */
-export const MAP_DEFAULT_CENTER: readonly [number, number] = [18, 0];
-export const MAP_DEFAULT_ZOOM = MAP_SCALE_BAND_ZOOM.global.minZoom;
+/**
+ * The initial map camera is NOT defined here.
+ *
+ * It is a product preference — which region Signalwatch opens on — and lives
+ * in `regional-priority.ts` so this module stays the physical band model and
+ * nothing more. Importing it the other way round would be a cycle.
+ */
 
 /**
  * Zoom used when the app focuses a selected record.

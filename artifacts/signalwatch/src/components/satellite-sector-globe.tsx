@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { countryFeatures } from "@/lib/country-boundaries";
+import { GLOBE_DEFAULT_VIEW } from "@/lib/regional-priority";
 import { MeshPhongMaterial } from "three";
 import type { SectorId } from "@/lib/sectors";
 import type {
@@ -100,7 +101,15 @@ const arcs = sampleLinks.flatMap(([startId, endId]) => {
   ];
 });
 
-const initialView = { lat: 18, lng: 12, altitude: 2.2 };
+/**
+ * Where the globe first faces.
+ *
+ * Comes from the active regional profile, so the globe and the 2D map share
+ * a regional preference without sharing an implementation. This is only the
+ * initial camera and the target of the reset control — the user can still
+ * rotate anywhere, and no coordinate is transformed.
+ */
+const initialView = GLOBE_DEFAULT_VIEW;
 
 export function SatelliteSectorGlobe({
   selectedSectorId,

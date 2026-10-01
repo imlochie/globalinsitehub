@@ -24,7 +24,6 @@ import {
   bandsBetween,
   isBandAtLeast,
   isBandAtMost,
-  MAP_DEFAULT_ZOOM,
   MAP_FOCUS_ZOOM,
   MAP_MAX_ZOOM,
   MAP_MIN_ZOOM,
@@ -115,7 +114,8 @@ test("out-of-range and malformed zooms clamp instead of throwing", () => {
 });
 
 test("map defaults sit inside the band table", () => {
-  assert.equal(scaleBandForZoom(MAP_DEFAULT_ZOOM), "global");
+  // The initial zoom moved out of this module in Checkpoint C: it is now a
+  // regional-profile decision, pinned in regional-priority.test.tsx.
   // Focusing a record should land on the city question, not the regional one.
   assert.equal(scaleBandForZoom(MAP_FOCUS_ZOOM), "city");
   assert.ok(MAP_FOCUS_ZOOM >= MAP_MIN_ZOOM && MAP_FOCUS_ZOOM <= MAP_MAX_ZOOM);
