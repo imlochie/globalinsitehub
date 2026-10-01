@@ -78,6 +78,40 @@ assert.match(viteConfig, /navigateFallbackDenylist/);
 assert.match(viteConfig, /pathname\.startsWith\('\/api\/'\)/);
 assert.match(viteConfig, /handler:\s*'NetworkOnly'/);
 
+// --- the worker must not stand between the browser and a provider --------
+/**
+ * Signalwatch loads provider media directly: camera stills, and since Weather
+ * Batch 1 the NOAA radar WMS tiles. Those requests are cross-origin and must
+ * reach the provider untouched.
+ *
+ * A caching runtime route over them would be wrong twice. It would serve
+ * stale radar while the UI reported a fresh frame time, breaking the
+ * freshness contract the admission record requires; and a revalidating
+ * strategy would re-request tiles on its own schedule rather than NOAA's,
+ * which the NWS Public Notice of Appropriate Use treats as abuse.
+ *
+ * Workbox only handles requests that match a registered route, so today the
+ * tiles fall through to the network. These assertions keep it that way: the
+ * only runtime route is the network-only API rule, and no caching strategy
+ * is registered anywhere in the generated worker.
+ */
+const runtimeHandlers = [...viteConfig.matchAll(/handler:\s*'([A-Za-z]+)'/g)].map(
+  (match) => match[1],
+);
+assert.deepEqual(
+  runtimeHandlers,
+  ["NetworkOnly"],
+  "the only runtime caching route may be the network-only API rule; a caching route would also capture provider imagery and serve stale radar",
+);
+
+const swSource = await readFile(path.join(distDir, "sw.js"), "utf8");
+for (const strategy of ["CacheFirst", "StaleWhileRevalidate", "NetworkFirst"]) {
+  assert.ok(
+    !swSource.includes(strategy),
+    `the service worker registers a ${strategy} strategy; provider imagery and media must not be cached or revalidated on the worker's schedule`,
+  );
+}
+
 console.log(
-  "PWA output verified: standalone manifest, /map shortcut, 192/512 icons, iOS icon, service worker, and network-only API configuration.",
+  "PWA output verified: standalone manifest, /map shortcut, 192/512 icons, iOS icon, service worker, network-only API configuration, and no worker caching over direct provider media.",
 );

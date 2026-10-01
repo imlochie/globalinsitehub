@@ -474,15 +474,77 @@ statement about the weather. It confirms the failure path, the route, the zod
 contract and the server-side cache. It confirms nothing about what NOAA
 actually returns.
 
-### 12.1 What the first networked run should check
+### 12.1 Promoting radar to "operationally verified"
 
-1. `GET /api/monitoring/weather` reports `availability: "covered"` and a
-   `sourceTimestamp` within roughly ten minutes of now.
-2. Enabling Weather draws a radar surface over the United States.
-3. Panning to Europe draws nothing, and the panel still reads "no radar
-   source", not "no precipitation".
-4. The browser's network panel shows `GetMap` requests going **directly** to
-   `mapservices.weather.noaa.gov`, never through the Signalwatch API.
-5. Those requests carry `CRS=EPSG:3857`, `VERSION=1.3.0`,
-   `FORMAT=image/png`, and **no** `TIME` parameter.
-6. No request is issued for a tile outside the five coverage areas.
+Weather Batch 1 is *structurally* complete. NOAA radar stays **admitted and
+implemented** rather than **operationally verified** until the provider has
+been exercised for real, because this is the point at which the integration
+crosses from a contract to an actual external raster.
+
+Most of that is now automated. Run on a networked host:
+
+```
+pnpm --filter @workspace/api-server run verify:radar
+# or against a deployment:
+API_BASE_URL=https://host/api pnpm --filter @workspace/api-server run verify:radar
+```
+
+`artifacts/api-server/scripts/verify-radar-live.mjs` issues the **first
+`GetMap` requests this project has ever made** and checks:
+
+| # | Check | How |
+| --- | --- | --- |
+| 0 | the script identifies exactly as the server does | reads `SIGNALWATCH_USER_AGENT` out of `provider-fetch.ts` and fails on drift |
+| 1 | GetCapabilities reachable, WMS 1.3.0, layer still published, EPSG:3857 still advertised, frame time readable | live XML |
+| 2 | GetMap returns a real PNG of the requested dimensions, not a 200 ServiceException | PNG IHDR parse |
+| 3 | an explicit `TIME` is accepted | second GetMap |
+| 4 | the out-of-coverage request *succeeds* — demonstrating why the clip exists | one deliberate central-Asia GetMap |
+| 5 | product contract: five areas, all inside the published envelope, none claiming Europe; WMS/3857/png/transparent; endpoint direct to NOAA and not relayed; `validTime`/`runTime` null; frame time distinct from receipt time | `/monitoring/weather` |
+| 6 | the metadata cache absorbs client polling | two consecutive requests must share an `ingestionTimestamp` |
+| 7 | the desktop CSP permits direct provider imagery | static read of `tauri.conf.json` |
+
+A provider outage is reported as a note, not a failure; a *wrong answer* is a
+failure. Verified against a stub serving envelope-as-coverage, 5-minute
+polling, EPSG:4326, a relayed endpoint and a receipt-stamped frame time: all
+eight violations were caught, exit 1.
+
+Four things the script cannot establish, which remain a human check in the
+packaged Windows build:
+
+1. the radar is drawn in the geographically **correct place** — needs a
+   reference raster or an eye;
+2. panning to Europe draws nothing and the panel reads "no radar source";
+3. devtools shows `GetMap` going direct to `mapservices.weather.noaa.gov`,
+   never through `/api`, and **no** request for a tile outside the five areas;
+4. tiles actually render inside **WebView2**.
+
+### 12.2 The shell is part of the provider integration surface
+
+Because imagery is deliberately browser → NOAA, the desktop CSP and the
+service worker sit in the request path and can break radar in ways that pass
+every unit test and every dev-server check. Both are now asserted rather than
+assumed:
+
+- `verify-desktop.mjs` requires the Tauri CSP's `img-src` to permit remote
+  HTTPS images. Tauri serves from `tauri.localhost` and WebView2 enforces the
+  policy, so an `img-src` without remote origins would break NOAA radar *and*
+  provider camera stills only in the installed build.
+- `verify-pwa.mjs` requires the **only** Workbox runtime route to be the
+  network-only `/api/` rule, and the generated worker to register no
+  `CacheFirst`, `StaleWhileRevalidate` or `NetworkFirst` strategy. A caching
+  route over provider imagery would serve stale radar while the UI reported a
+  fresh frame time, and a revalidating one would re-request tiles on the
+  worker's schedule rather than NOAA's — which the appropriate-use policy
+  treats as abuse.
+
+Both assertions were confirmed to fail when deliberately violated.
+
+One governance observation, recorded rather than acted on: the desktop
+`img-src` is a blanket `https:` wildcard, not a provider allowlist. That is
+pre-existing, it predates radar, and it is what also lets camera stills load.
+Narrowing it to the admitted provider hosts would be a genuine tightening, but
+it would silently break any camera provider not on the list, so it is left to
+an explicit decision rather than folded into a weather batch. The assertion
+above is written to accept *either* form — a wildcard or an allowlist naming
+NOAA — so tightening it later will not trip the verifier, and removing remote
+images entirely will.

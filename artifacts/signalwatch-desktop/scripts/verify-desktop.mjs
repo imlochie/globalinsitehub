@@ -171,6 +171,33 @@ assert.match(
   "the build must prepare the sidecar before bundling",
 );
 
+// --- direct provider media must survive the WebView2 CSP ------------------
+/**
+ * Signalwatch deliberately loads provider media straight from the provider:
+ * camera stills, and since Weather Batch 1 the NOAA radar WMS tiles. Nothing
+ * is relayed through the API server.
+ *
+ * That makes the desktop CSP part of the provider integration surface. The
+ * packaged app runs in WebView2, which enforces this policy, so a CSP that
+ * omits remote images would break radar and cameras *only in the installed
+ * build* — passing every test and every browser check first.
+ *
+ * Leaflet requests WMS tiles as <img> elements, so `img-src` is the governing
+ * directive. This asserts the policy still permits them.
+ */
+const csp = config.app?.security?.csp ?? "";
+const imgSrc = /img-src([^;]*)/.exec(csp)?.[1] ?? "";
+assert.ok(
+  /\bhttps:/.test(imgSrc) ||
+    /mapservices\.weather\.noaa\.gov/.test(imgSrc),
+  "CSP img-src must permit remote HTTPS images, or the packaged app cannot load NOAA radar tiles or provider camera stills (both load browser -> provider by design)",
+);
+assert.doesNotMatch(
+  csp,
+  /img-src[^;]*'none'/,
+  "CSP img-src 'none' would disable all provider media in the desktop build",
+);
+
 // The staged runtime must match the platform being bundled. Copying a Linux
 // node into a Windows .exe is the single most likely packaging mistake here,
 // because prepare-sidecar.mjs copies the *build host's* runtime.
