@@ -13,8 +13,10 @@ import { classifyViewCapability } from "./view-capability";
  * cameras rather than catalogue entries — nothing is inferred from the shape
  * of a URL.
  *
- * Licence: CC BY 4.0 AU. Access uses the public API key published in
- * specification §2.1.1.1, overridable with QLDTRAFFIC_API_KEY. No account.
+ * Licence: CC BY 4.0 AU. Requests require an API key; Signalwatch uses the
+ * public key published in specification §2.1.1.1, so no account registration
+ * is required. Overridable with QLDTRAFFIC_API_KEY if an operator registers
+ * their own.
  *
  * Signalwatch does not proxy the imagery: the frontend loads `image_url`
  * directly from the provider, so the desktop app never becomes a video relay.

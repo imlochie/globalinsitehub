@@ -14,10 +14,11 @@ import type {
  * in accordance with the Creative Commons Attribution 4.0 Australia
  * (CC BY 4.0 AU) license."
  *
- * Access: no account required. Specification §2.1.1.1 publishes a public API
- * key "available for developers who do not wish to register and receive their
- * own API key". That key is used here by default and can be overridden with
- * QLDTRAFFIC_API_KEY if the operator registers their own.
+ * Access: requests require an API key, but no account registration is needed.
+ * Specification §2.1.1.1 publishes a public key "available for developers who
+ * do not wish to register and receive their own API key". That published key
+ * is used by default and can be overridden with QLDTRAFFIC_API_KEY if the
+ * operator registers their own.
  *
  * The public key is globally limited to 100 requests/minute **shared across all
  * unregistered users**, so throughput is not guaranteed. Signalwatch makes one
