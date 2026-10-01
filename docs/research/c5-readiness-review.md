@@ -466,17 +466,22 @@ Two standing constraints that must not be weakened:
 
 | # | Question | Why it matters |
 |---|---|---|
-| 1 | Does DPIRD publish any reflectivity **image** product? | Would change DPIRD from field-only to a possible WA imagery source, altering the whole Australian radar story |
+| 1 | ~~Does DPIRD publish any reflectivity **image** product?~~ | **ANSWERED 2 Oct 2026: NO.** The Radar API's entire surface is six endpoints, all metadata or numeric rainfall. No image, tile, raster, WMS or reflectivity endpoint exists. See §O. |
 | 2 | DPIRD rate limits | Determines cache TTL and whether per-user keys are even workable at scale |
-| 3 | Are DPIRD station observations **observations** or a spatial product? | Decides whether DPIRD joins an observation layer or the spatial weather layer — different pipelines entirely |
+| 3 | ~~Are DPIRD station observations **observations** or a spatial product?~~ | **ANSWERED 2 Oct 2026: observations.** All ~26 Weather API endpoints are station-keyed; no grid, bbox, tile or envelope exists anywhere in the surface. See §O. |
 | 4 | Layer-kind decision (§D.4) — separate layers or multi-kind layer? | Shapes the registry, the panels and the capability declarations |
 | 5 | Is Signalwatch definitively non-commercial? | Open-Meteo free tier and BOM text products both depend on it |
 | 6 | How does a desktop user actually enter a credential? | No settings surface exists; env var is not a product answer |
 | 7 | SILO fair-use numeric limits | Unknown; affects any future historical capability |
 | 8 | Has BOM open-data delivery resumed? | Determines whether ACCESS-G is available at all |
 
-Questions 1, 3, 4 and 6 are **blocking**: each would change the shape of the
-code, not just its parameters.
+Questions 1 and 3 were answered on 2 October 2026 (§O). **Questions 4 and 6
+remain blocking**, and both are internal design decisions requiring
+ratification rather than research. A new question 9 was opened by the same
+inspection: the Radar API's terms-of-service link is dead, so the licence
+basis recorded for DPIRD rainfall is weaker than C4 assumed.
+
+| 9 | Which terms actually govern the **Radar** API? | Its spec links to a dead `agric.wa.gov.au` URL, not the live DPIRD terms the Weather API links to |
 
 ---
 
@@ -583,3 +588,89 @@ The blocking questions in §J are unchanged, and question 3 - whether DPIRD
 station observations are observations or a spatial product - is now the
 question that decides which pipeline, and therefore which of these findings
 applies.
+
+---
+
+## O. Q1 / Q2 resolved — DPIRD API contract read
+
+Authorized fetch, 2 October 2026. Two requests, both to published OpenAPI
+specification documents, honestly identified, **no API key, no data
+endpoints, no polling**. Both returned HTTP success; no 401, 403 or 429, so
+there is no rejection signal to report.
+
+Sources: `api.agric.wa.gov.au/v2/weather/openapi/` (Weather v2.7.4) and
+`api.agric.wa.gov.au/v2/radar/openapi/` (Radar v2.2.1). Both OAS 3.0, both
+presenting an `Authorize` control consistent with the documented API-key
+requirement.
+
+### Q1 — does DPIRD publish reflectivity imagery? **No.**
+
+The Radar API is six endpoints in total:
+
+```
+GET /v2/radar/radars                 list of radars + metadata
+GET /v2/radar/radars/{radarCode}     metadata for one radar
+GET /v2/radar/nearby                 nearest radar points to lat/lng
+GET /v2/radar/rainfall               rainfall for a specific radar
+GET /v2/radar/summaries/daily        daily, by closest radar point to lat/lng
+GET /v2/radar/summaries/monthly      monthly, by closest radar point to lat/lng
+```
+
+There is no image, tile, raster, WMS, GetMap or reflectivity endpoint. The
+C4 inference — that an API named "Radar" is not a radar-imagery source — is
+now confirmed at the contract level rather than from prose.
+
+**Consequence:** the absence of an Australian radar source at $0 is
+established, not merely unproven. It can be stated as a permanent declared
+absence rather than a gap pending research.
+
+### Q2 — are station observations observations, or a spatial product? **Observations.**
+
+The Weather API is roughly 26 endpoints and **every one is station-keyed**:
+
+```
+stations, stations/availability, stations/nearby,
+stations/{code}, stations/{code}/availability          metadata
+stations/latest, stations/bulletins, stations/rainfall,
+stations/extreme-conditions, stations/events           current values
+stations/{code}/latest, /bulletin, /data               single station
+summaries/{15min,30min,hourly,daily,monthly,yearly}    + /timeseries
+stations/{code}/summaries/{...}                        single station
+```
+
+No grid, bounding box, tile, envelope or raster appears anywhere in the
+surface. `stations/latest` returns "all active stations by default" and
+`stations/nearby` sorts by distance — a catalogue-plus-latest-values shape,
+which is the same structure the camera and maritime providers already use.
+
+**Consequence:** DPIRD station observations belong in the **observation
+pipeline (C5a)**. The working hypothesis is confirmed for both DPIRD
+capabilities, and **no part of C5a depends on the field renderer**.
+
+### Three findings that were not being looked for
+
+**1. The Radar API's terms link is dead — this weakens its licence basis.**
+
+The Weather API links to the live terms at
+`dpird.wa.gov.au/online-tools/apis/api-terms-and-conditions/`. The Radar API
+links to `www.agric.wa.gov.au/n/6732` — the old domain C4 recorded as dead.
+
+The two APIs therefore cite **different** terms documents, and the Radar
+one cannot be read. C4 recorded DPIRD rainfall as CC BY 3.0 AU by applying
+the Weather API's terms page to both. That inference is now visibly
+unsupported for the Radar API.
+
+This **lowers** confidence rather than raising it, and is logged as
+question 9. DPIRD rainfall should be treated as *licence-pending* rather
+than settled CC BY 3.0 AU until the governing terms are identified.
+
+**2. DPIRD spans two semantic classes.** Alongside live values it serves
+15-minute through yearly summaries, with 15/30-minute retained from the
+start of the previous year. So one provider supplies both instrument
+observations and historical summaries — further support for keeping the
+finer taxonomy documentary rather than per-provider.
+
+**3. Rate limits are still `UNKNOWN`.** They do not appear in the rendered
+specs. They may be present in the machine-readable `swagger.yaml` at each
+spec's `./swagger.yaml`, which was **not** fetched, since the authorization
+covered Q1/Q2 and those are answered. Question 2 stands open.

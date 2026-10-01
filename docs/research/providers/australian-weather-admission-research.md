@@ -554,4 +554,25 @@ specifications (to settle the imagery question and rate limits); the eight
 state warning feed licences; the Himawari L1b processing chain; and the BOM
 anon-FTP product terms as distinct from site copyright.
 
+---
+
+## Addendum — DPIRD API contract read, 2 October 2026
+
+Authorized fetch of the two published OpenAPI specs. No key, no data
+endpoints, no polling; both returned HTTP success.
+
+The C4 verdicts are unchanged in direction but two are now better evidenced
+and one is **weaker** than recorded above.
+
+| Finding | Effect on the C4 verdict |
+|---|---|
+| Radar API has **no** image/tile/raster/reflectivity endpoint — six endpoints, all metadata or numeric rainfall | Confirms "derived field, not imagery" at contract level. **No Australian radar at $0 is now established, not inferred.** |
+| Weather API is ~26 endpoints, **all station-keyed**, no grid/bbox/tile | DPIRD station data are point **observations**, not a spatial product |
+| Radar API's terms-of-service link points to the dead `agric.wa.gov.au/n/6732`, while the Weather API links to the live DPIRD terms | **Weakens** the rainfall licence basis. CC BY 3.0 AU was applied to both from one terms page; that is unsupported for the Radar API. Treat rainfall as **licence-pending**. |
+| Weather API also serves 15-min through yearly summaries | One provider spans instrument observation *and* historical summary |
+| Rate limits absent from both rendered specs | Remains `UNKNOWN`; `swagger.yaml` not fetched |
+
+Full detail, including the endpoint inventories, is in
+`../c5-readiness-review.md` §O.
+
 **STOP. Awaiting explicit implementation approval.**
