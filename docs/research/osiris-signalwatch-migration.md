@@ -137,8 +137,15 @@ UI  (Signalwatch, unchanged — must not know an adapter came from OSIRIS)
 | --- | --- | --- |
 | 0 | Architecture + inventory | **done** (`3151af3`, `46d00a2`, this document) |
 | 1 | One clean OSIRIS-derived provider + the honest fetch abstraction | **done** — Digitraffic weathercams |
-| 2 | Camera corpus migration | blocked — TfL/WSDOT/Caltrans all RESEARCH, no primary terms. **Batch 2 was spent on NOAA/NWS alerts instead**, which cleared admission outright |
-| 3 | Environmental / hazard sources | **partly done** — NOAA/NWS alerts migrated in Batch 2; NASA FIRMS still pending a MAP_KEY decision |
+| 2 | Camera corpus migration | **not executed — blocked.** TfL/WSDOT/Caltrans all RESEARCH, no primary terms read |
+| 3 | Environmental / hazard sources | **in progress.** NOAA/NWS alerts done; NASA FIRMS admitted |
+
+> **Numbering correction.** The NOAA/NWS commit is labelled `batch 2` in its
+> message. That is wrong against this sequence: Batch 2 is the camera corpus,
+> which remains blocked and unexecuted. NWS belongs to Batch 3
+> (environmental / hazard), executed ahead of Batch 2 because it cleared
+> admission while the camera terms did not. The commit message cannot be
+> rewritten without rewriting history; this note is the correction of record.
 | 4 | Aircraft | blocked — ADSB.lol ADOPT WITH CONDITIONS, operator contact outstanding |
 | 5 | Maritime / infrastructure / space / news | after 2–3 |
 
