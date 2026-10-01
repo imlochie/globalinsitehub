@@ -92,7 +92,9 @@ else { Write-Warn 'WebView2 runtime not detected. The installer can bootstrap it
 Write-Step 'Install workspace dependencies'
 Push-Location $workspaceRoot
 try {
-  pnpm install --allow-build=esbuild
+  # Native build scripts are allowlisted in pnpm-workspace.yaml
+  # (onlyBuiltDependencies), so no install-time flag is needed or wanted.
+  pnpm install
   if ($LASTEXITCODE -ne 0) { Fail 'pnpm install failed' }
   Write-Ok 'dependencies installed'
 } finally { Pop-Location }
