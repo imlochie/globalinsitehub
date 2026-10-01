@@ -147,7 +147,8 @@ UI  (Signalwatch, unchanged — must not know an adapter came from OSIRIS)
 > admission while the camera terms did not. The commit message cannot be
 > rewritten without rewriting history; this note is the correction of record.
 | 4 | Aircraft | blocked — ADSB.lol ADOPT WITH CONDITIONS, operator contact outstanding |
-| 5 | Maritime / infrastructure / space / news | after 2–3. **Air quality is no longer a candidate** — OpenAQ excluded on its credential model |
+| 5 | Maritime / infrastructure / space / news | after 2–3 |
+| — | Air quality (OpenAQ) | **ADOPT WITH CONDITIONS** — blocked on one question to the provider, not on code |
 
 ---
 

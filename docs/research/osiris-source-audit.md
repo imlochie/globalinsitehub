@@ -244,7 +244,7 @@ That is the QLDTraffic rule applied consistently: coverage is not capability.
 | `api.weather.gov` | weather | yes | none | **RESEARCH** | US-only; coverage honesty matters |
 | adsb.fi / adsb.lol | aircraft | yes | none observed | **RESEARCH — priority** | Must verify ToS and whether read access requires feeding, as with ADSBHub |
 | OpenSky | aircraft | yes | optional creds | **RESEARCH** | Anonymous access is heavily rate-limited |
-| OpenAQ | air quality | yes | **individual, non-transferable key** | **EXCLUDE** | Key may not be transferred to other users; the desktop build ships the API to end users. See `providers/openaq-admission.md` |
+| OpenAQ | air quality | yes | individual key, **user-supplied** | **ADOPT WITH CONDITIONS** | Free tier 60/min, 2000/hr; per-source licence exposed via `/v3/licenses`; blocked on confirming the "substantially duplicate" clause. See `providers/openaq-admission.md` |
 | IODA (Georgia Tech) | connectivity | yes | none | **RESEARCH** | Academic source; confirm acceptable use |
 | OpenSanctions | sanctions | yes | none | **DEFER** | Licence fine (CC BY 4.0); no Signalwatch layer fits yet |
 | TfL JamCams | cameras | yes | free key for higher limits | **RESEARCH — priority** | Large UK coverage, documented JPEG URL pattern; reached via stealthFetch in OSIRIS so accessibility unverified |

@@ -124,18 +124,30 @@ Signalwatch's desktop package **bundles the API server and ships it to end
 users**. A credential placed in configuration therefore travels to every
 user's machine.
 
-So for any keyed provider, ask one extra question before cost:
+So for any keyed provider, ask before cost:
 
 > Is the credential transferable, and is it bound to an individual?
 
-A non-transferable or individually-bound key cannot be used by a distributed
-package, regardless of price. OpenAQ is the worked example: free tier, genuine
-public data, non-profit operator — and still EXCLUDE, because its terms
-prohibit transferring the key to other users while Signalwatch's installer
-would do exactly that.
+If it is non-transferable, **one design is ruled out and the provider usually
+is not**: never bundle a key in the distributed package. The resolutions, in
+the order to prefer them:
 
-A provider that works in the hosted package but not the desktop one is a
-coverage inconsistency, not a feature.
+1. **User-supplied credential.** The operator or desktop user registers their
+   own key and configures it; the provider reports `unconfigured` when absent
+   and every other provider is unaffected. This honours "one individual, one
+   key" rather than circumventing it, and it is the established Signalwatch
+   pattern (`TFNSW_API_KEY`, `BARENTSWATCH_CLIENT_ID`).
+2. **Hosted-only deployment**, where the credential stays with one operator.
+   Accept consciously that the source is then absent from the desktop
+   package — a coverage inconsistency, not a feature.
+3. **Exclude**, only when neither works.
+
+OpenAQ is the worked example, and a cautionary one: it was first recorded here
+as EXCLUDE on the assumption that bundling was the only way to supply a key.
+That was wrong, and the correction is the reason this check now lists
+resolutions rather than a verdict. A provider that looks architecturally
+incompatible deserves the same evidence standard as one that looks
+convenient.
 
 ### Statuses
 
