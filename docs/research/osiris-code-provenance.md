@@ -20,6 +20,8 @@ OSIRIS upstream commit referenced by all entries below:
 
 | `src/app/api/weather/route.ts` | `artifacts/api-server/src/hazard-sources/nws.ts` | Batch 3 (commit labelled `batch 2`; see migration doc) | **Endpoint knowledge only**: that `api.weather.gov/alerts/active` serves active NWS alerts as GeoJSON | Everything else. Routed through `providerFetch` so the identifying User-Agent NWS *requires* is sent; added licence, attribution, CAP severity as a source-owned label, source-declared open/closed from `expires`, derived-centre disclosure, and dropping of zone-only alerts that cannot be placed | NOAA / NWS | **ADOPT** — "open data, free to use for any purpose", no key |
 
+| `src/app/api/fires/route.ts` | `artifacts/api-server/src/hazard-sources/firms.ts` | Batch 3 | **The bulk-download approach only** — that FIRMS publishes keyless global CSVs | Everything else. Source switched from the retiring Suomi NPP product to NOAA-20; own slower cache window; bounded output with the cap disclosed; FIRMS confidence carried verbatim; FRP as the one real measurement; "detection, not confirmed fire" language throughout | NASA FIRMS | **ADOPT** — keyless bulk path, no account |
+
 ### Notes on the Batch 1 migration
 
 - The OSIRIS original builds `https://weathercam.digitraffic.fi/${preset.id}.jpg`

@@ -506,6 +506,19 @@ export const naturalHazardLayerDefinition: LayerDefinition = {
       },
     },
     {
+      id: "nasa-firms",
+      name: "NASA FIRMS active fire detections",
+      countries: [],
+      attribution: "Source: NASA FIRMS (LANCE / EOSDIS)",
+      catalogueUrl: "https://firms.modaps.eosdis.nasa.gov/active_fire/",
+      licence: "NASA EOSDIS open data",
+      coverage: {
+        scope: "global",
+        regions: ["Worldwide"],
+        note: "VIIRS 375 m satellite fire detections, sampled by overpass. A detection is not a confirmed fire.",
+      },
+    },
+    {
       id: "noaa-nws",
       name: "NOAA National Weather Service alerts",
       countries: ["US"],
@@ -524,9 +537,10 @@ export const naturalHazardLayerDefinition: LayerDefinition = {
     regions: ["Worldwide", "United States and its territories"],
     note:
       "Global reach, bounded completeness: earthquakes from magnitude 2.5 up in the " +
-      "past 24 hours, plus curated open natural events worldwide, plus National " +
-      "Weather Service alerts for the United States only. An area with no markers " +
-      "means these sources reported nothing there, not that nothing is happening.",
+      "past 24 hours, curated open natural events worldwide, satellite fire " +
+      "detections sampled by overpass, and National Weather Service alerts for the " +
+      "United States only. An area with no markers means these sources reported " +
+      "nothing there, not that nothing is happening.",
   },
   sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_HAZARD_MARKERS },
 };
