@@ -63,4 +63,5 @@ Recorded so a future agent does not reintroduce them.
 | `cctv/hongkong.ts`, `netherlands.ts`, `newzealand.ts`, `iceland.ts`, `lithuania.ts`, `taiwan.ts` | various government | Per-provider licence + capability check |
 | `api/fires/route.ts` | NASA FIRMS | **Admitted — ADOPT.** No key needed via the bulk download path; see `providers/nasa-firms-admission.md` |
 | `api/weather/route.ts` (GDACS half) | GDACS | Licence unverified; overlaps EONET semantics |
+| `api/air-quality/route.ts` | OpenAQ | **EXCLUDE** — individual, non-transferable API key is incompatible with shipping the API inside the desktop installer |
 | `api/aircraft`, `api/flights` | ADSB.lol | ADOPT WITH CONDITIONS — operator contact outstanding |

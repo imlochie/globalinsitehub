@@ -118,6 +118,25 @@ Worked examples already in the codebase:
 Collapsing any of those into "public" would lose the thing that actually
 decides admissibility.
 
+### Credential distribution check
+
+Signalwatch's desktop package **bundles the API server and ships it to end
+users**. A credential placed in configuration therefore travels to every
+user's machine.
+
+So for any keyed provider, ask one extra question before cost:
+
+> Is the credential transferable, and is it bound to an individual?
+
+A non-transferable or individually-bound key cannot be used by a distributed
+package, regardless of price. OpenAQ is the worked example: free tier, genuine
+public data, non-profit operator — and still EXCLUDE, because its terms
+prohibit transferring the key to other users while Signalwatch's installer
+would do exactly that.
+
+A provider that works in the hosted package but not the desktop one is a
+coverage inconsistency, not a feature.
+
 ### Statuses
 
 ```
