@@ -101,6 +101,23 @@ Removing that requires a commercial OV/EV code-signing certificate, a recurring
 annual cost that has not been authorised. The verifier asserts no signing
 thumbprint is configured so this stays a deliberate choice rather than drift.
 
+## One-shot Windows build
+
+On a Windows host, this runs the whole documented path and inspects the result:
+
+```powershell
+pwsh -File scripts/build-windows.ps1
+# or, to check prerequisites and gates without compiling:
+pwsh -File scripts/build-windows.ps1 -SkipBuild
+```
+
+It checks prerequisites (Node, pnpm, Rust, MSVC build tools, WebView2),
+installs dependencies, builds the web client, runs `verify-pwa`, prepares the
+sidecar with the **Windows** Node runtime, runs `verify-desktop` with the PE
+runtime guard and sidecar boot check, compiles, packages the NSIS installer,
+and then verifies the staged `node.exe` is a real PE binary and the API
+resources are present. Any failure stops the run; no gate is relaxed.
+
 ## Windows build checklist
 
 The Windows bundle **must be prepared on Windows**: `prepare-sidecar.mjs`
