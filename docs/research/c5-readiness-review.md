@@ -804,3 +804,121 @@ injection alone does not satisfy the revocation requirement.
 **What the decision preserves:** no shared operator credential, no hosted
 proxy, the key never reaches the browser, and the mobile story stays honest
 through the pre-existing `unconfigured` state rather than a new one.
+
+### P.3 Semantic classification is not structural render kind
+
+This is the distinction both ratifications depend on, and it is the one most
+easily lost.
+
+Two orthogonal questions are being asked about every product:
+
+| Question | Axis | Where it lives |
+|---|---|---|
+| *What does this product mean?* | **Semantic classification** — instrument observation, derived field, modelled field, historical climate, warning | **Documentation only.** No runtime representation. |
+| *How is it drawn?* | **Structural kind** — `observation \| imagery \| field` | **Runtime.** Selects the pipeline and renderer. |
+
+**They do not map one-to-one, and DPIRD rainfall is the proof case.**
+Semantically it is a *derived field* — computed from radar returns rather
+than measured at a point. Structurally, if the response contract turns out
+to be point-shaped, it is an **observation** and belongs in the observation
+pipeline.
+
+Classifying it as `kind: "field"` because its semantic label contains the
+word "field" would route a point query into a raster pipeline it does not
+need, and would make C5a depend on a renderer that does not exist.
+
+**The governing rule:** structural kind is determined by the **response
+contract** — never by the semantic label, the endpoint name, or the
+provider's vocabulary. This is the same discipline that produced the "an API
+named *Radar* is not necessarily radar imagery" finding, applied one level
+down. §O records that the rainfall response schema has **not** been read, so
+its structural kind is *expected* to be observation but is **not yet
+established**.
+
+**No new runtime enums.** `derived field` and `historical` stay documented
+classifications. One consumer is evidence of a use case, not evidence that
+the runtime needs a new ontology; promote only when a second real consumer
+requires runtime discrimination. Do not introduce a `derived-field` or
+`historical` member of `LayerKind` or `SpatialProduct.kind`.
+
+**What stays unchanged:** the existing weather layer may remain
+`kind: "imagery"`, and the existing spatial `imagery | field` product
+distinction remains valid. Neither needs revision to accommodate DPIRD.
+
+### P.4 Explicit prohibitions carried by these decisions
+
+**Q3 — structural layers.** Do not:
+
+- introduce a multi-kind `LayerDefinition`;
+- make one layer behave simultaneously as observation, imagery and field;
+- weaken the structural guard so that a conceptual "Weather" layer can
+  contain every kind;
+- treat the conceptual grouping as a runtime abstraction — it is a
+  UI/domain concept only.
+
+**Q4 — the credential.** It must never be:
+
+- bundled into the application;
+- stored in frontend `localStorage`;
+- stored in ordinary plaintext application configuration;
+- placed in a URL;
+- exposed to the browser or PWA frontend;
+- **returned through the Signalwatch API** — no endpoint may echo it back,
+  including diagnostics and status payloads;
+- shared with a hosted service;
+- reused across users, or treated as a shared Signalwatch/operator
+  credential.
+
+**Mobile/PWA** must not silently use a shared operator key, forward the
+desktop credential, introduce a hosted credential broker, or make DPIRD
+mandatory for operation. It reports `unconfigured`, which already exists.
+
+**Credential-store library: deliberately not selected.** §P.2 records that
+no native mechanism exists in the repository today. The architectural
+requirement — native OS credential store rather than plaintext — is recorded
+here; choosing a library is implementation work and is not part of this
+ratification.
+
+### P.5 Consequences, precedence, and what these decisions do not grant
+
+**Documented precedence** (not implemented):
+
+```
+desktop user credential (OS-secured store)
+    OR
+explicit DPIRD_API_KEY deployment override
+```
+
+The override is a developer/deployment mechanism, not the end-user path.
+
+**Consequences for C5a:** DPIRD station observations use the existing
+observation pipeline and existing cache mechanics with provider-specific
+stale/removal semantics; no field renderer is involved; no new runtime enum
+is created; the weather layer is untouched; the credential is desktop-local
+and mobile degrades to `unconfigured`. Still outstanding: a per-capability
+admission for DPIRD station observations, approval for the OS credential
+store dependency, and a revocation path (§P.2).
+
+**Consequences for C5b:** Open-Meteo remains behind the field-rendering
+architecture. Under Q3 a field product gets its **own structural layer**
+rather than widening the weather layer, and the `SpatialProduct.kind`
+agreement check applies there rather than being bypassed.
+
+**Four states that must not be collapsed into one another:**
+
+| Concept | Current DPIRD example | What it grants |
+|---|---|---|
+| Provider admission status | rainfall is **licence-pending** (Q9) | permission to use the source at all |
+| Capability classification | station data are **observations** | which pipeline it belongs to |
+| Internal design ratification | **Q3 and Q4, here** | how it would be built if built |
+| Implementation authorization | **not given** | permission to write code |
+
+**Neither Q3 nor Q4 authorizes implementation.** They determine the shape of
+work that remains unapproved. The next authorization must be explicit and
+separate.
+
+**Admission boundaries preserved unchanged by this ratification:** DPIRD
+station observations remain the classified C5a *candidate*; DPIRD rainfall
+remains licence-pending under Q9 and is **not** admitted by this decision;
+DPIRD reflectivity imagery remains unavailable through the researched Radar
+API; Open-Meteo remains behind C5b; Australian radar remains unadmitted.
