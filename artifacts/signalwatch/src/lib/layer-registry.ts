@@ -263,6 +263,15 @@ export const cameraLayerDefinition: LayerDefinition = {
       attribution: "Source: Fintraffic / digitraffic.fi, license CC 4.0 BY",
       catalogueUrl: "https://www.digitraffic.fi/en/road-traffic/",
     },
+    {
+      id: "hk-td-traffic-snapshots",
+      name: "Hong Kong Transport Department traffic snapshots",
+      countries: ["HK"],
+      attribution:
+        "Source: Transport Department, the Government of the Hong Kong SAR, via DATA.GOV.HK (intellectual property rights owned by the Government and the Transport Department)",
+      catalogueUrl:
+        "https://data.gov.hk/en-data/dataset/hk-td-tis_2-traffic-snapshot-images",
+    },
   ],
   sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_CAMERA_MARKERS },
 };
@@ -651,4 +660,40 @@ export function layerProviderIdsForCountry(
   return definition.providers
     .filter((provider) => provider.countries.includes(countryCode))
     .map((provider) => provider.id);
+}
+
+/**
+ * Display names for the ISO alpha-2 codes providers declare.
+ *
+ * A code with no entry falls back to the code itself rather than to a guessed
+ * country name — the selector should never invent a label for a provider
+ * whose country has not been named here.
+ */
+const COUNTRY_LABELS: Record<string, string> = {
+  AU: "Australia",
+  FI: "Finland",
+  HK: "Hong Kong SAR",
+  NO: "Norway",
+  US: "United States",
+};
+
+export type LayerCountry = { code: string; label: string };
+
+/**
+ * Countries a layer actually has providers for, derived from the registry.
+ *
+ * Shared UI reads this instead of hard-coding a country list. That is not
+ * cosmetic: the Digitraffic road weather cameras were registered as a
+ * provider but stayed unreachable in the UI because the camera country
+ * selector was a hard-coded Australia/United States pair, so a registered,
+ * admitted provider could not be selected. Deriving the list means
+ * registering a provider is sufficient to surface it.
+ */
+export function layerCountries(definition: LayerDefinition): LayerCountry[] {
+  const codes = new Set(
+    definition.providers.flatMap((provider) => provider.countries),
+  );
+  return [...codes]
+    .map((code) => ({ code, label: COUNTRY_LABELS[code] ?? code }))
+    .sort((left, right) => left.label.localeCompare(right.label));
 }

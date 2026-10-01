@@ -5,16 +5,42 @@ import {
   type CameraRecord,
 } from "@workspace/api-client-react";
 import { cameraProviderIdsForFilter } from "@/lib/global-layers";
+import { cameraLayerDefinition } from "@/lib/layer-registry";
 
-export type CameraCountry = "AU" | "US";
-export type CameraProviderSelection =
-  | "all"
-  | "qld-tmr"
-  | "transport-for-nsw"
-  | "opentrafficcammap";
+/** ISO alpha-2 code of the country whose camera providers are requested. */
+export type CameraCountry = string;
+/** A registered camera provider id, or every provider for the country. */
+export type CameraProviderSelection = string;
 
 const CAMERA_REQUEST_LIMIT = 250;
 const QUERY_STALE_TIME_MS = 5 * 60_000;
+
+/**
+ * How many provider queries this hook can issue.
+ *
+ * One request per provider, rather than one per country, so a large
+ * catalogue cannot consume the whole response limit and crowd its
+ * co-located providers out of the layer.
+ *
+ * React requires an unchanging hook count across renders, so the slot count
+ * is fixed at module load from the static registry — the largest number of
+ * camera providers any single country has, with headroom. It is derived
+ * rather than hard-coded so that registering a provider cannot silently
+ * exceed it.
+ */
+const PROVIDER_QUERY_SLOTS = Math.max(
+  4,
+  ...[
+    ...new Set(
+      cameraLayerDefinition.providers.flatMap((provider) => provider.countries),
+    ),
+  ].map(
+    (country) =>
+      cameraLayerDefinition.providers.filter((provider) =>
+        provider.countries.includes(country),
+      ).length,
+  ),
+);
 
 type UseCameraCatalogueOptions = {
   enabled: boolean;
@@ -30,97 +56,75 @@ export function useCameraCatalogue({
   search,
 }: UseCameraCatalogueOptions) {
   const queryText = search.trim() || undefined;
-  const qldParams = {
-    country,
-    provider: "qld-tmr",
-    limit: CAMERA_REQUEST_LIMIT,
-    q: queryText,
-  };
-  const nswParams = {
-    country,
-    provider: "transport-for-nsw",
-    limit: CAMERA_REQUEST_LIMIT,
-    q: queryText,
-  };
-  const usParams = {
-    country,
-    provider: "opentrafficcammap",
-    limit: CAMERA_REQUEST_LIMIT,
-    q: queryText,
-  };
-
   const requestedProviders = cameraProviderIdsForFilter(country, provider);
-  const qldEnabled = enabled && requestedProviders.includes("qld-tmr");
-  const nswEnabled =
-    enabled && requestedProviders.includes("transport-for-nsw");
-  const usEnabled =
-    enabled && requestedProviders.includes("opentrafficcammap");
-
-  const qldQuery = useGetMonitoringCameras(qldParams, {
-    query: {
-      enabled: qldEnabled,
-      queryKey: getGetMonitoringCamerasQueryKey(qldParams),
-      staleTime: QUERY_STALE_TIME_MS,
-    },
-  });
-  const nswQuery = useGetMonitoringCameras(nswParams, {
-    query: {
-      enabled: nswEnabled,
-      queryKey: getGetMonitoringCamerasQueryKey(nswParams),
-      staleTime: QUERY_STALE_TIME_MS,
-    },
-  });
-  const usQuery = useGetMonitoringCameras(usParams, {
-    query: {
-      enabled: usEnabled,
-      queryKey: getGetMonitoringCamerasQueryKey(usParams),
-      staleTime: QUERY_STALE_TIME_MS,
-    },
-  });
-
-  const requests = [
-    { providerId: "qld-tmr", enabled: qldEnabled, query: qldQuery },
-    { providerId: "transport-for-nsw", enabled: nswEnabled, query: nswQuery },
-    { providerId: "opentrafficcammap", enabled: usEnabled, query: usQuery },
-  ].filter((request) => request.enabled);
 
   const camerasById = new Map<string, CameraRecord>();
   const providerStatuses = new Map<string, CameraProviderStatus>();
-  for (const request of requests) {
-    for (const camera of request.query.data?.cameras ?? []) {
+  const requestedProviderIds: string[] = [];
+  const refetchers: Array<() => void> = [];
+  let matchedCount = 0;
+  let activeRequests = 0;
+  let fetchingRequests = 0;
+  let loadingRequests = 0;
+  let erroredRequests = 0;
+
+  for (let slot = 0; slot < PROVIDER_QUERY_SLOTS; slot += 1) {
+    const providerId = requestedProviders[slot] ?? null;
+    const slotEnabled = enabled && providerId !== null;
+    // An idle slot still needs stable params so its query key can never
+    // collide with an active slot's.
+    const params = {
+      country,
+      provider: providerId ?? `__idle-slot-${slot}`,
+      limit: CAMERA_REQUEST_LIMIT,
+      q: queryText,
+    };
+    // Called unconditionally on every render: the loop bound is a module
+    // constant, so the hook order is stable.
+    const query = useGetMonitoringCameras(params, {
+      query: {
+        enabled: slotEnabled,
+        queryKey: getGetMonitoringCamerasQueryKey(params),
+        staleTime: QUERY_STALE_TIME_MS,
+      },
+    });
+
+    if (!slotEnabled || providerId === null) continue;
+
+    activeRequests += 1;
+    requestedProviderIds.push(providerId);
+    refetchers.push(() => void query.refetch());
+    matchedCount += query.data?.matchedCount ?? 0;
+    if (query.isFetching) fetchingRequests += 1;
+    if (query.isLoading) loadingRequests += 1;
+    if (query.isError) erroredRequests += 1;
+
+    for (const camera of query.data?.cameras ?? []) {
       if (!camerasById.has(camera.id)) camerasById.set(camera.id, camera);
     }
-    for (const status of request.query.data?.providers ?? []) {
+    for (const status of query.data?.providers ?? []) {
       providerStatuses.set(status.id, status);
     }
   }
 
   const cameras = [...camerasById.values()];
-  const matchedCount = requests.reduce(
-    (total, request) => total + (request.query.data?.matchedCount ?? 0),
-    0,
-  );
-  const isFetching = requests.some((request) => request.query.isFetching);
-  const hasError = requests.some((request) => request.query.isError);
+  const isFetching = fetchingRequests > 0;
+  const hasError = erroredRequests > 0;
   const isLoading =
-    requests.length > 0 &&
-    requests.some((request) => request.query.isLoading) &&
-    cameras.length === 0;
+    activeRequests > 0 && loadingRequests > 0 && cameras.length === 0;
   const isUnavailable =
-    requests.length > 0 &&
-    requests.every((request) => request.query.isError) &&
+    activeRequests > 0 &&
+    erroredRequests === activeRequests &&
     cameras.length === 0;
 
   function refetch() {
-    for (const request of requests) {
-      void request.query.refetch();
-    }
+    for (const run of refetchers) run();
   }
 
   return {
     cameras,
     providers: [...providerStatuses.values()],
-    requestedProviderIds: requests.map((request) => request.providerId),
+    requestedProviderIds,
     matchedCount,
     returnedCount: cameras.length,
     isFetching,

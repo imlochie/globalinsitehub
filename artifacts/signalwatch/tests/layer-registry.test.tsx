@@ -8,10 +8,12 @@ import { GlobalLayerControl } from "../src/components/global-layer-control";
 import { GlobalObservationInspector } from "../src/components/global-observation-inspector";
 import {
   createLayerRegistry,
+  layerCountries,
   layerRegistry,
   plannedLayerDefinitions,
   type LayerDefinition,
 } from "../src/lib/layer-registry";
+import { cameraLayerPanel } from "../src/components/layer-panels/camera-layer-panel";
 import {
   clearLayerSelection,
   findObservation,
@@ -144,6 +146,7 @@ test("registry is the authoritative description of every layer", () => {
       "opentrafficcammap",
       "qldtraffic-cameras",
       "digitraffic-weathercam",
+      "hk-td-traffic-snapshots",
     ],
   );
   assert.deepEqual(
@@ -420,4 +423,57 @@ test("a registered layer can be resolved by capability", () => {
     ["cameras", "public-events", "test-buoys"],
   );
   assert.deepEqual(registry.planned(), []);
+});
+
+test("the camera country selector is derived from the registry, not hard-coded", () => {
+  // Regression guard. The Digitraffic road weather cameras were registered as
+  // a camera provider but could not be reached in the UI, because the country
+  // selector was a hard-coded Australia/United States pair. Registering an
+  // admitted provider must be enough to make it selectable.
+  const cameras = layerRegistry.require("cameras");
+  const declared = [
+    ...new Set(cameras.providers.flatMap((provider) => provider.countries)),
+  ].sort();
+  assert.deepEqual(
+    layerCountries(cameras)
+      .map((entry) => entry.code)
+      .sort(),
+    declared,
+  );
+  assert.ok(declared.includes("FI"));
+  assert.ok(declared.includes("HK"));
+
+  // Every declared country is rendered as an option, and each is labelled.
+  const panel = cameraLayerPanel({
+    enabled: true,
+    onEnabledChange: () => {},
+    country: "HK",
+    onCountryChange: () => {},
+    provider: "all",
+    onProviderChange: () => {},
+    search: "",
+    onSearchChange: () => {},
+    providers: [],
+    requestedProviderIds: [],
+    matchedCount: 0,
+    returnedCount: 0,
+    isLoading: false,
+    isFetching: false,
+    hasError: false,
+    isUnavailable: false,
+    isTruncated: false,
+  });
+  const markup = renderToStaticMarkup(
+    React.createElement(Router, null, panel.controls),
+  );
+  for (const country of layerCountries(cameras)) {
+    assert.ok(
+      markup.includes(`value="${country.code}"`),
+      `missing country option ${country.code}`,
+    );
+  }
+  assert.ok(markup.includes("Hong Kong SAR"));
+  // The provider list follows the selected country.
+  assert.ok(markup.includes("Hong Kong Transport Department traffic snapshots"));
+  assert.ok(markup.includes("All Hong Kong SAR providers"));
 });

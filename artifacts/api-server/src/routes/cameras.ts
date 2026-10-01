@@ -23,6 +23,9 @@ export function createMonitoringCamerasRouter(
     const query = parsed.data.q?.trim().toLowerCase();
     const country = parsed.data.country?.trim().toLowerCase();
     const provider = parsed.data.provider?.trim().toLowerCase();
+    // Friendly spellings only. A country the map does not list still filters
+    // correctly on its ISO alpha-2 code or its exact country name, so adding a
+    // provider never requires an entry here.
     const countryAliases: Record<string, { code: string; name: string }> = {
       au: { code: "AU", name: "australia" },
       aus: { code: "AU", name: "australia" },
@@ -31,6 +34,14 @@ export function createMonitoringCamerasRouter(
       usa: { code: "US", name: "united states" },
       "united states": { code: "US", name: "united states" },
       "united states of america": { code: "US", name: "united states" },
+      fi: { code: "FI", name: "finland" },
+      fin: { code: "FI", name: "finland" },
+      finland: { code: "FI", name: "finland" },
+      hk: { code: "HK", name: "hong kong sar, china" },
+      hkg: { code: "HK", name: "hong kong sar, china" },
+      "hong kong": { code: "HK", name: "hong kong sar, china" },
+      "hong kong sar": { code: "HK", name: "hong kong sar, china" },
+      "hong kong sar, china": { code: "HK", name: "hong kong sar, china" },
     };
     const matchingCameras = snapshots
       .flatMap((snapshot) => snapshot.cameras)

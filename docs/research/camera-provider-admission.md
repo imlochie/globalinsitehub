@@ -1,7 +1,14 @@
 # Camera provider admission — government programmes from the OSIRIS audit
 
-Research record. **Nothing implemented.** Researched 2026-09-30 against
-Signalwatch `e2140ad`, under `source-admission-standard.md`.
+Research record for **Batch A** (TfL, WSDOT, Caltrans). Researched 2026-09-30
+against Signalwatch `e2140ad`, under `source-admission-standard.md`.
+**None of the three providers in this document is implemented.**
+
+> **Later work lives elsewhere.** Camera Batch 2A (Hong Kong, Rijkswaterstaat)
+> was researched on 2026-10-01 and is recorded in
+> `providers/hk-td-traffic-snapshots-admission.md` (**ADOPT**, implemented) and
+> `providers/rijkswaterstaat-cameras-exclusion.md` (**EXCLUDE for ingestion**).
+> The three providers below are unchanged by that batch and remain `RESEARCH`.
 
 ## Scope
 
@@ -198,3 +205,28 @@ record.
 Until then the camera catalogue stays as it is. The QLDTraffic provider
 remains the only camera source with a provider-documented current-image
 guarantee, and that is the standard the others have to meet.
+
+---
+
+## Addendum, 2026-10-01 — what Batch 2A settled
+
+Three of the open questions above were answered by other providers, so they no
+longer need to be rediscovered when TfL, WSDOT or Caltrans are next picked up.
+
+1. **The partner-camera hazard is now enforced in code, not just noted.** The
+   Hong Kong adapter drops any catalogue entry whose image URL is off the
+   provider's documented image origin. That is the pattern a WSDOT adapter
+   would need, and it exists and is tested.
+2. **Media rights can be settled affirmatively, not just left unknown.** Hong
+   Kong cleared the independent media-class test because its terms define
+   "Data" to include photographs *and* the JPEGs are published as first-class
+   dataset resources. That is the evidence shape to look for in the remaining
+   three — not merely an open catalogue licence.
+3. **`unavailable` is not a default capability.** Digitraffic can emit it
+   because it publishes per-camera collection state; Hong Kong cannot, because
+   it renders a "No Service" frame instead. A provider must publish
+   availability before Signalwatch may claim it.
+
+The QLDTraffic sentence above is now out of date in one respect: QLDTraffic,
+Digitraffic and the Hong Kong Transport Department all carry a
+provider-documented current-image guarantee. The standard is unchanged.

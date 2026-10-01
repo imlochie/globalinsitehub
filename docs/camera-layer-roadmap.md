@@ -20,6 +20,33 @@ The Transport for NSW adapter reads the public GeoJSON file documented in the of
 
 Before adding other regions or providers, review catalogue shape, attribution, licence, public-access terms, and update behavior. OpenTrafficCamMap's other country catalogues and Argus coverage references are candidates for assessment, not runtime dependencies.
 
+## Stage 3b — Coverage expansion: Finland and Hong Kong
+
+Two providers added by the OSIRIS migration batches, both keyless and free.
+
+**Fintraffic Digitraffic road weather cameras** (Finland, CC BY 4.0) supply the
+first provider-published per-camera availability signal, so `unavailable` is a
+real provider-sourced state rather than a guess. Signalwatch identifies itself
+with the `Digitraffic-User` header the provider asks for.
+
+**Hong Kong Transport Department traffic snapshot images** (Camera Batch 2A)
+are published through DATA.GOV.HK under terms that permit commercial and
+non-commercial reuse, redistribution and reproduction with attribution. The
+imagery clears the independent media-class test on its own evidence: the terms
+define "Data" to include photographs, and each of the ~1,013 JPEGs is published
+as a first-class dataset resource. The provider documents the request path
+`https://tdcctv.data.one.gov.hk/<Key>.JPG`, a 320x240 JPEG response and a
+two-minute refresh. Unlike Digitraffic, it publishes no per-camera availability
+field — a temporarily unavailable camera shows the provider's own "No Service"
+frame — so this adapter never emits `unavailable`.
+
+Decision records: `docs/research/providers/hk-td-traffic-snapshots-admission.md`
+and `docs/research/providers/rijkswaterstaat-cameras-exclusion.md`.
+
+The camera country selector is derived from the layer registry rather than
+hard-coded, so registering an admitted provider is sufficient to make it
+selectable.
+
 ## Stage 4 — Media and playback
 
 Consider direct playback only for sources whose access and reuse terms permit it. Keep media delivery separate from catalogue discovery; do not add a relay, proxy, hosted camera service, or per-camera health probe without an explicit product and rights review.

@@ -1,4 +1,5 @@
 import { digitrafficWeathercamProvider } from "./digitraffic-weathercam";
+import { hkTdTrafficSnapshotProvider } from "./hk-td-traffic-snapshots";
 import { openTrafficCamMapProvider } from "./opentrafficcammap";
 import { qldTrafficCameraProvider } from "./qldtraffic-cameras";
 import { queenslandTmrProvider } from "./queensland-tmr";
@@ -9,6 +10,7 @@ import type { CameraProviderAdapter, CameraProviderSnapshot } from "./types";
 export const cameraProviders: CameraProviderAdapter[] = [
   qldTrafficCameraProvider,
   digitrafficWeathercamProvider,
+  hkTdTrafficSnapshotProvider,
   queenslandTmrProvider,
   transportForNswProvider,
   openTrafficCamMapProvider,

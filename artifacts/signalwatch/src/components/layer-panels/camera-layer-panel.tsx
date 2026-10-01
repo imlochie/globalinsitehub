@@ -3,7 +3,11 @@ import React from 'react';
 import { ChevronDown, ExternalLink, MapPinned } from 'lucide-react';
 import type { CameraProviderStatus } from '@workspace/api-client-react';
 import type { CameraCountry, CameraProviderSelection } from '@/hooks/use-camera-catalogue';
-import { layerRegistry, type LayerDefinition } from '@/lib/layer-registry';
+import {
+  layerCountries,
+  layerRegistry,
+  type LayerDefinition,
+} from '@/lib/layer-registry';
 import { StatusDot } from './status-dot';
 import type { LayerPanelModel } from './types';
 
@@ -35,6 +39,12 @@ export type CameraLayerPanelInput = {
 
 const formatNumber = (value: number) => value.toLocaleString();
 
+/**
+ * Provider choices for the selected country, read from the registry.
+ *
+ * The "all" label is built from the country's own name rather than from a
+ * hard-coded adjective, so a newly registered country needs no change here.
+ */
 function providerChoices(
   definition: LayerDefinition,
   country: CameraCountry,
@@ -42,11 +52,11 @@ function providerChoices(
   const available = definition.providers.filter((provider) =>
     provider.countries.includes(country),
   );
+  const countryLabel =
+    layerCountries(definition).find((entry) => entry.code === country)?.label ??
+    country;
   return [
-    {
-      value: 'all' as const,
-      label: country === 'AU' ? 'All Australian providers' : 'All US providers',
-    },
+    { value: 'all', label: `All ${countryLabel} providers` },
     ...available.map((provider) => ({
       value: provider.id as CameraProviderSelection,
       label: provider.name,
@@ -124,8 +134,11 @@ export function cameraLayerPanel(input: CameraLayerPanelInput): LayerPanelModel 
             data-testid="select-global-camera-country"
             className="h-9 w-full appearance-none rounded border border-input bg-background py-0 pl-2.5 pr-8 text-xs outline-none transition-colors focus:border-primary/60 focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <option value="AU">Australia</option>
-            <option value="US">United States</option>
+            {layerCountries(definition).map((entry) => (
+              <option key={entry.code} value={entry.code}>
+                {entry.label}
+              </option>
+            ))}
           </select>
           <ChevronDown
             className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"

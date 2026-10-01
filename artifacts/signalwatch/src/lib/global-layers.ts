@@ -369,15 +369,19 @@ export function layerSample(
 /* Camera layer                                                               */
 /* -------------------------------------------------------------------------- */
 
-export type CameraProviderFilter =
-  | "all"
-  | "qld-tmr"
-  | "transport-for-nsw"
-  | "opentrafficcammap";
+/**
+ * `"all"`, or a registered camera provider id.
+ *
+ * Deliberately not a closed union of provider ids: the registry is the source
+ * of truth for which providers exist, and an unknown id resolves to no
+ * providers below rather than to a type error at a second site.
+ */
+export type CameraProviderFilter = "all" | (string & {});
 
 /** Resolved from the registry's provider definitions, not a parallel array. */
 export function cameraProviderIdsForFilter(
-  country: "AU" | "US",
+  /** ISO alpha-2 country code. */
+  country: string,
   provider: CameraProviderFilter,
   registry: LayerRegistry = layerRegistry,
 ): string[] {
