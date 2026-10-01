@@ -34,6 +34,14 @@ and a shared record inspector with provenance intact.
 - `artifacts/api-server` — Express API, including the camera provider adapters
 - `lib/api-spec/openapi.yaml` — API contract; `pnpm --filter @workspace/api-spec run codegen` regenerates the client
 - `research/` — provider research and evidence (aircraft providers remain unresolved)
+- `docs/research/source-admission-standard.md` — **how a data source becomes part
+  of Signalwatch.** Five invariants: technical accessibility is not permission;
+  another project's implementation is not upstream authorisation; a disguised or
+  proxied request is not acceptable provenance; capability is earned from the
+  documented provider contract; unknown stays unknown. Includes the admission
+  test, the access/registration/cost vocabulary, standing prohibitions, and the
+  ADOPT / ADOPT WITH CONDITIONS / RESEARCH / DEFER / EXCLUDE statuses. Read this
+  before adding any provider.
 - `research/future-concepts.md` — **idea vault**: captured product concepts that are
   explicitly *not* implemented. Nothing there has a `layerRegistry` entry, provider,
   endpoint or marker. A concept only becomes a layer after passing the provider gate
