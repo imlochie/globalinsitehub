@@ -194,6 +194,23 @@ update cadence and a time dimension for later animation.
 terms and confirm WMS `GetMap` parameters, neither of which was done in this
 pass.
 
+> **Update 2026-10-01 — both conditions cleared; this is now ADOPT.**
+> The NWS disclaimer and its *Public Notice of Appropriate Use* were read, and
+> WMS 1.3.0 `GetCapabilities` was read from the service itself (layer name,
+> formats, CRS list, bounding box and time dimension confirmed). Full record:
+> `providers/nws-radar-wms-admission.md`.
+>
+> Three corrections to this section arising from that pass:
+> - The time-enabled ImageServer Signalwatch would call lists its coverage as
+>   **CONUS, Alaska, Caribbean, Guam and Hawaii — not Canada.** The Canada
+>   mention above came from the sibling MapServer. Quote the service actually
+>   called.
+> - The provider states both "Every 5 minutes" and "approximately every ten
+>   minutes" for this product. Signalwatch takes the slower figure for polling.
+> - NWS publishes no numeric rate limit but does publish an appropriate-use
+>   policy whose first rule is to match the data's refresh frequency. That is
+>   the binding constraint, and it is behavioural rather than numeric.
+
 ---
 
 ## EUMETSAT EUMETView
@@ -224,7 +241,7 @@ invariant 5 they stay unknown until read. No decision.
 | Weather function | Provider | Source / interface | Admission | Notes |
 | --- | --- | --- | --- | --- |
 | Global temperature / wind / precipitation / pressure | NOAA | GFS via NOMADS GRIB filter | **ADOPT WITH CONDITIONS** | Transport unresolved: GRIB2 decode vs OPeNDAP |
-| Radar reflectivity | NOAA / NWS | `mapservices.weather.noaa.gov` radar WMS | **ADOPT WITH CONDITIONS** | North America + Caribbean/Guam/Hawaii only; 10-min cadence |
+| Radar reflectivity | NOAA / NWS | `mapservices.weather.noaa.gov` radar WMS | **ADOPT** — conditions cleared 2026-10-01, see `providers/nws-radar-wms-admission.md` | CONUS + Alaska/Caribbean/Guam/Hawaii only; poll no faster than 10 min |
 | Radar, other regions | — | — | **not researched** | Would be a federation; nothing admitted |
 | Satellite imagery | EUMETSAT / NOAA | EUMETView, GOES | **RESEARCH** | Terms and coverage unread |
 | Lightning | — | — | **unresolved** | nowCOAST's product did not survive its migration |
