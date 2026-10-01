@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { CameraRecord } from "@workspace/api-zod";
 import { createMemoryCachedCameraProvider } from "./memory-cache";
+import { classifyViewCapability } from "./view-capability";
 
 const PROVIDER_ID = "transport-for-nsw";
 const PROVIDER_NAME = "Transport for NSW Live Traffic Cameras";
@@ -193,6 +194,9 @@ function cameraFromFeature(value: unknown): CameraRecord | null {
     encoding: null,
     format,
     imageUpdateRateMs: null,
+    // sourceUrl above is resolved from the provider's documented image_url
+    // field, so this is a published current image rather than a guess.
+    ...classifyViewCapability({ documentedAs: "current-image", url: sourceUrl }),
     streamKind: "snapshot",
     feedStatus: "not-probed",
     publicAccess: "catalogue-listed",

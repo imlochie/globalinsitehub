@@ -1,10 +1,12 @@
 import { openTrafficCamMapProvider } from "./opentrafficcammap";
+import { qldTrafficCameraProvider } from "./qldtraffic-cameras";
 import { queenslandTmrProvider } from "./queensland-tmr";
 import { transportForNswProvider } from "./transport-for-nsw";
 import type { CameraProviderAdapter, CameraProviderSnapshot } from "./types";
 
 /** Registered camera catalogue providers, in response order. */
 export const cameraProviders: CameraProviderAdapter[] = [
+  qldTrafficCameraProvider,
   queenslandTmrProvider,
   transportForNswProvider,
   openTrafficCamMapProvider,

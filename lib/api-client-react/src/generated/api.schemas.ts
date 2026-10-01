@@ -143,6 +143,34 @@ export const CameraRecordFeedStatus = {
   'not-probed': 'not-probed',
 } as const;
 
+/**
+ * What Signalwatch can actually offer for this camera, derived only from what the provider documents. "live-image" means the provider publishes a current still image URL; "video-stream" means a genuinely playable public media URL; "external-viewer" means the provider owns the viewing page; "catalogue-only" means the location is listed but no public viewing mechanism is published. A camera is never called a stream merely because it has a source web page.
+ */
+export type CameraRecordViewCapability = typeof CameraRecordViewCapability[keyof typeof CameraRecordViewCapability];
+
+
+export const CameraRecordViewCapability = {
+  'catalogue-only': 'catalogue-only',
+  'live-image': 'live-image',
+  'video-stream': 'video-stream',
+  'external-viewer': 'external-viewer',
+  unavailable: 'unavailable',
+} as const;
+
+/**
+ * Media kind of mediaUrl, as documented by the provider.
+ * @nullable
+ */
+export type CameraRecordMediaType = typeof CameraRecordMediaType[keyof typeof CameraRecordMediaType] | null;
+
+
+export const CameraRecordMediaType = {
+  image: 'image',
+  mjpeg: 'mjpeg',
+  hls: 'hls',
+  webpage: 'webpage',
+} as const;
+
 export type CameraRecordPublicAccess = typeof CameraRecordPublicAccess[keyof typeof CameraRecordPublicAccess];
 
 
@@ -183,6 +211,23 @@ export interface CameraRecord {
   streamKind: CameraRecordStreamKind;
   /** Catalogue listing only; the feed itself is never contacted. */
   feedStatus: CameraRecordFeedStatus;
+  /** What Signalwatch can actually offer for this camera, derived only from what the provider documents. "live-image" means the provider publishes a current still image URL; "video-stream" means a genuinely playable public media URL; "external-viewer" means the provider owns the viewing page; "catalogue-only" means the location is listed but no public viewing mechanism is published. A camera is never called a stream merely because it has a source web page. */
+  viewCapability: CameraRecordViewCapability;
+  /**
+     * Direct public media URL, present only when the provider documents one. Never inferred or constructed.
+     * @nullable
+     */
+  mediaUrl?: string | null;
+  /**
+     * Media kind of mediaUrl, as documented by the provider.
+     * @nullable
+     */
+  mediaType?: CameraRecordMediaType;
+  /**
+     * Provider-owned page for viewing this camera, where one exists.
+     * @nullable
+     */
+  viewUrl?: string | null;
   publicAccess: CameraRecordPublicAccess;
   attribution: string;
   catalogueUrl: string;

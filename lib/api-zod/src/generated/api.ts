@@ -127,6 +127,10 @@ export const GetMonitoringCamerasResponse = zod.object({
   "imageUpdateRateMs": zod.number().int().nullable(),
   "streamKind": zod.enum(['snapshot', 'image', 'video', 'unknown']),
   "feedStatus": zod.enum(['not-probed']).describe('Catalogue listing only; the feed itself is never contacted.'),
+  "viewCapability": zod.enum(['catalogue-only', 'live-image', 'video-stream', 'external-viewer', 'unavailable']).describe('What Signalwatch can actually offer for this camera, derived only from what the provider documents. "live-image" means the provider publishes a current still image URL; "video-stream" means a genuinely playable public media URL; "external-viewer" means the provider owns the viewing page; "catalogue-only" means the location is listed but no public viewing mechanism is published. A camera is never called a stream merely because it has a source web page.'),
+  "mediaUrl": zod.string().url().nullish().describe('Direct public media URL, present only when the provider documents one. Never inferred or constructed.'),
+  "mediaType": zod.union([zod.literal('image'),zod.literal('mjpeg'),zod.literal('hls'),zod.literal('webpage'),zod.literal(null)]).nullish().describe('Media kind of mediaUrl, as documented by the provider.'),
+  "viewUrl": zod.string().url().nullish().describe('Provider-owned page for viewing this camera, where one exists.'),
   "publicAccess": zod.enum(['catalogue-listed']),
   "attribution": zod.string(),
   "catalogueUrl": zod.string().url()

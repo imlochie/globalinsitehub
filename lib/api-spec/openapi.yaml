@@ -718,6 +718,7 @@ components:
         - format
         - imageUpdateRateMs
         - streamKind
+        - viewCapability
         - feedStatus
         - publicAccess
         - attribution
@@ -767,6 +768,31 @@ components:
           type: string
           enum: [not-probed]
           description: Catalogue listing only; the feed itself is never contacted.
+        viewCapability:
+          type: string
+          enum: [catalogue-only, live-image, video-stream, external-viewer, unavailable]
+          description: >-
+            What Signalwatch can actually offer for this camera, derived only from
+            what the provider documents. "live-image" means the provider publishes a
+            current still image URL; "video-stream" means a genuinely playable public
+            media URL; "external-viewer" means the provider owns the viewing page;
+            "catalogue-only" means the location is listed but no public viewing
+            mechanism is published. A camera is never called a stream merely because
+            it has a source web page.
+        mediaUrl:
+          type: ["string", "null"]
+          format: uri
+          description: >-
+            Direct public media URL, present only when the provider documents one.
+            Never inferred or constructed.
+        mediaType:
+          type: ["string", "null"]
+          enum: [image, mjpeg, hls, webpage, null]
+          description: Media kind of mediaUrl, as documented by the provider.
+        viewUrl:
+          type: ["string", "null"]
+          format: uri
+          description: Provider-owned page for viewing this camera, where one exists.
         publicAccess:
           type: string
           enum: [catalogue-listed]

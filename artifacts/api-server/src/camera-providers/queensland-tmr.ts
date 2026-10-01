@@ -124,6 +124,13 @@ function normalizeFeature(value: unknown): CameraRecord | null {
     encoding: null,
     format: "JPEG",
     imageUpdateRateMs: null,
+    // The ArcGIS layer publishes locations and attributes; it documents no
+    // viewing mechanism, so this stays a catalogue entry. QLDTraffic's own
+    // camera feed is a separate provider and is where viewable imagery lives.
+    viewCapability: "catalogue-only",
+    mediaUrl: null,
+    mediaType: null,
+    viewUrl: null,
     streamKind: "snapshot",
     feedStatus: "not-probed",
     publicAccess: "catalogue-listed",

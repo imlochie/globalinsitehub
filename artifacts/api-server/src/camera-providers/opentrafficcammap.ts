@@ -7,6 +7,7 @@ import type {
   CameraProviderAdapter,
   CameraProviderSnapshot,
 } from "./types";
+import { classifyViewCapability } from "./view-capability";
 
 const PROVIDER_ID = "opentrafficcammap";
 const PROVIDER_NAME = "OpenTrafficCamMap USA";
@@ -166,6 +167,10 @@ function normalizeCamera(
       sourceUrl,
       imageUpdateRateMs,
     ),
+    // The catalogue documents each entry's format and encoding, so the URL is
+    // a declared media source. classifyViewCapability still refuses anything a
+    // browser cannot actually play.
+    ...classifyViewCapability({ documentedAs: "media", url: sourceUrl }),
     feedStatus: "not-probed",
     publicAccess: "catalogue-listed",
     attribution: ATTRIBUTION,
