@@ -4,8 +4,16 @@ import { setBaseUrl } from '@workspace/api-client-react';
 import App from './App';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { normalizeEntryPath } from '@/lib/entry-path';
+import {
+  installDesktopCrashListeners,
+  reportDesktopCrash,
+} from '@/lib/desktop-diagnostics';
 
 import './index.css';
+
+// Installed before anything else can fail, so a chunk that never loads is
+// still reported. No-op outside the packaged desktop shell.
+installDesktopCrashListeners();
 
 /**
  * API base URL resolution, in priority order:
@@ -65,8 +73,15 @@ if (typeof window !== 'undefined') {
 
 createRoot(document.getElementById('root')!, {
   // Keeps caught errors off reportError(), which would raise the dev overlay.
+  // React calls this for every boundary-caught error, so it is the one hook
+  // that cannot be suppressed by how a boundary chooses to render.
   onCaughtError: (error, errorInfo) => {
     console.error(error, errorInfo.componentStack);
+    reportDesktopCrash(error, errorInfo.componentStack);
+  },
+  onUncaughtError: (error, errorInfo) => {
+    console.error(error, errorInfo.componentStack);
+    reportDesktopCrash(error, errorInfo.componentStack);
   },
 }).render(
   <ErrorBoundary>
