@@ -3,6 +3,7 @@ import { setBaseUrl } from '@workspace/api-client-react';
 
 import App from './App';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { normalizeEntryPath } from '@/lib/entry-path';
 
 import './index.css';
 
@@ -24,6 +25,23 @@ const runtimeApiBaseUrl =
 const apiBaseUrl = runtimeApiBaseUrl || import.meta.env.VITE_API_BASE_URL?.trim();
 if (apiBaseUrl) {
   setBaseUrl(apiBaseUrl);
+}
+
+/**
+ * Rewrite a packaged shell's `index.html` entry path to its directory before
+ * React mounts, so the router resolves the same routes as the browser. This is
+ * a replaceState, so it adds no navigation entry, and it is a no-op for paths
+ * that are already normal routes.
+ */
+if (typeof window !== 'undefined') {
+  const normalized = normalizeEntryPath(window.location.pathname);
+  if (normalized !== null) {
+    window.history.replaceState(
+      null,
+      '',
+      `${normalized}${window.location.search}${window.location.hash}`,
+    );
+  }
 }
 
 /**
