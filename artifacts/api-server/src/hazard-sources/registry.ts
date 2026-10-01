@@ -1,5 +1,6 @@
 import { getHazardFeeds, type HazardFeedOutcome } from "./feed-cache";
 import { eonetSource, parseEonetEvents } from "./eonet";
+import { nwsSource, parseNwsAlerts } from "./nws";
 import { parseUsgsEarthquakes, usgsSource } from "./usgs";
 import type {
   HazardRecord,
@@ -65,6 +66,7 @@ export async function getHazardSnapshots(): Promise<HazardSourceSnapshot[]> {
   return [
     buildSnapshot(usgsSource, feeds.usgs, parseUsgsEarthquakes, feeds.fetchedAt),
     buildSnapshot(eonetSource, feeds.eonet, parseEonetEvents, feeds.fetchedAt),
+    buildSnapshot(nwsSource, feeds.nws, parseNwsAlerts, feeds.fetchedAt),
   ];
 }
 

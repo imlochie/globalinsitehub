@@ -155,6 +155,8 @@ export type NaturalHazardObservation = BaseObservation<
   activityStatus: "open" | "closed" | null;
   /** Provider review state, e.g. USGS "automatic" / "reviewed". */
   reviewStatus: string | null;
+  /** The source's own severity label. Never ranked or compared. */
+  sourceSeverity: string | null;
   place: string | null;
   licence: string;
   record: HazardRecord;
@@ -701,6 +703,7 @@ export function normalizeHazardRecord(
     depthKm: record.depthKm ?? null,
     activityStatus: record.activityStatus ?? null,
     reviewStatus: record.reviewStatus ?? null,
+    sourceSeverity: record.sourceSeverity ?? null,
     place: record.place ?? null,
     licence: record.licence,
     record,

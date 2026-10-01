@@ -137,6 +137,7 @@ export function parseUsgsEarthquakes(
       magnitudeDescription: null,
       depthKm: finite(coordinates[2]),
       reviewStatus: text(properties.status),
+      sourceSeverity: null,
       place: text(properties.place),
       description: null,
       sourceUrl:

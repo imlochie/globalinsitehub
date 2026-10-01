@@ -505,14 +505,28 @@ export const naturalHazardLayerDefinition: LayerDefinition = {
         note: "Curated open natural events. NASA states these records are approximations, not official extents.",
       },
     },
+    {
+      id: "noaa-nws",
+      name: "NOAA National Weather Service alerts",
+      countries: ["US"],
+      attribution: "Source: NOAA / National Weather Service",
+      catalogueUrl: "https://www.weather.gov/documentation/services-web-alerts",
+      licence: "U.S. public domain (NOAA/NWS open data)",
+      coverage: {
+        scope: "regional",
+        regions: ["United States and its territories"],
+        note: "Active NWS alerts. No coverage outside the United States.",
+      },
+    },
   ],
   coverage: {
     scope: "global",
-    regions: ["Worldwide"],
+    regions: ["Worldwide", "United States and its territories"],
     note:
       "Global reach, bounded completeness: earthquakes from magnitude 2.5 up in the " +
-      "past 24 hours, plus curated open natural events. An area with no markers means " +
-      "these two sources reported nothing there, not that nothing is happening.",
+      "past 24 hours, plus curated open natural events worldwide, plus National " +
+      "Weather Service alerts for the United States only. An area with no markers " +
+      "means these sources reported nothing there, not that nothing is happening.",
   },
   sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_HAZARD_MARKERS },
 };

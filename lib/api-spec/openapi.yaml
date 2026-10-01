@@ -487,6 +487,13 @@ components:
           type: string
           nullable: true
           description: Provider review state, e.g. USGS "automatic" or "reviewed".
+        sourceSeverity:
+          type: string
+          nullable: true
+          description: >-
+            The source's own severity label, e.g. the NWS CAP severity
+            ("Extreme", "Severe", "Moderate", "Minor"). Carried verbatim and
+            never ranked, scored, or compared against another source's scale.
         place:
           type: string
           nullable: true

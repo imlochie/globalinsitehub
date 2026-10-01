@@ -93,6 +93,12 @@ export function NaturalHazardObservationDetails({
         {observation.depthKm !== null && (
           <DetailRow label="Depth" value={`${observation.depthKm} km`} />
         )}
+        {observation.sourceSeverity && (
+          <DetailRow
+            label="Severity reported by source"
+            value={observation.sourceSeverity}
+          />
+        )}
         {observation.reviewStatus && (
           <DetailRow label="Source review state" value={observation.reviewStatus} />
         )}

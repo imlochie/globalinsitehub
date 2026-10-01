@@ -266,6 +266,7 @@ export const GetMonitoringHazardsResponse = zod.object({
   "magnitudeDescription": zod.string().nullish(),
   "depthKm": zod.number().nullish(),
   "reviewStatus": zod.string().nullish().describe('Provider review state, e.g. USGS "automatic" or "reviewed".'),
+  "sourceSeverity": zod.string().nullish().describe('The source\'s own severity label, e.g. the NWS CAP severity ("Extreme", "Severe", "Moderate", "Minor"). Carried verbatim and never ranked, scored, or compared against another source\'s scale.'),
   "place": zod.string().nullish(),
   "description": zod.string().nullish(),
   "sourceUrl": zod.string().url(),

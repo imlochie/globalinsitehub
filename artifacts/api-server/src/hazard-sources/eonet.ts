@@ -203,6 +203,7 @@ export function parseEonetEvents(
         text(latest.magnitudeDescription) ?? text(event.magnitudeDescription),
       depthKm: null,
       reviewStatus: null,
+      sourceSeverity: null,
       place: null,
       description: [description, approximateNote]
         .filter((part): part is string => Boolean(part))

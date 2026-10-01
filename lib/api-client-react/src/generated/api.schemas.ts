@@ -448,6 +448,8 @@ export interface HazardRecord {
   depthKm?: number | null;
   /** Provider review state, e.g. USGS "automatic" or "reviewed". */
   reviewStatus?: string | null;
+  /** The source's own severity label, e.g. the NWS CAP severity ("Extreme", "Severe", "Moderate", "Minor"). Carried verbatim and never ranked, scored, or compared against another source's scale. */
+  sourceSeverity?: string | null;
   place?: string | null;
   description?: string | null;
   sourceUrl: string;

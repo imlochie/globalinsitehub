@@ -18,6 +18,8 @@ OSIRIS upstream commit referenced by all entries below:
 | --- | --- | --- | --- | --- | --- | --- |
 | `src/app/api/cctv/finland.ts` | `artifacts/api-server/src/camera-providers/digitraffic-weathercam.ts` | Batch 1 | **Endpoint knowledge only**: that `tie.digitraffic.fi/api/weathercam/v1/stations` lists stations whose `presets` carry camera images | Everything else. `stealthFetch` → `providerFetch` with an honest `Digitraffic-User` header; inferred image handling → `classifyViewCapability` with provider-documented `documentedAs`; added licence, attribution, freshness, per-camera availability, origin pinning and preset-id validation | Fintraffic Digitraffic | **ADOPT** — CC BY 4.0 verified in `research/maritime-provider-decision.md` |
 
+| `src/app/api/weather/route.ts` | `artifacts/api-server/src/hazard-sources/nws.ts` | Batch 2 | **Endpoint knowledge only**: that `api.weather.gov/alerts/active` serves active NWS alerts as GeoJSON | Everything else. Routed through `providerFetch` so the identifying User-Agent NWS *requires* is sent; added licence, attribution, CAP severity as a source-owned label, source-declared open/closed from `expires`, derived-centre disclosure, and dropping of zone-only alerts that cannot be placed | NOAA / NWS | **ADOPT** — "open data, free to use for any purpose", no key |
+
 ### Notes on the Batch 1 migration
 
 - The OSIRIS original builds `https://weathercam.digitraffic.fi/${preset.id}.jpg`
@@ -58,4 +60,5 @@ Recorded so a future agent does not reintroduce them.
 | `cctv/route.ts` (inline) | Caltrans | No terms or image semantics established |
 | `cctv/hongkong.ts`, `netherlands.ts`, `newzealand.ts`, `iceland.ts`, `lithuania.ts`, `taiwan.ts` | various government | Per-provider licence + capability check |
 | `api/fires/route.ts` | NASA FIRMS | Free `MAP_KEY` registration decision |
+| `api/weather/route.ts` (GDACS half) | GDACS | Licence unverified; overlaps EONET semantics |
 | `api/aircraft`, `api/flights` | ADSB.lol | ADOPT WITH CONDITIONS — operator contact outstanding |

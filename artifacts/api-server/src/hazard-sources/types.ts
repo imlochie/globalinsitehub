@@ -42,6 +42,12 @@ export type HazardRecord = {
   depthKm: number | null;
   /** Provider review state, e.g. USGS "automatic" / "reviewed". */
   reviewStatus: string | null;
+  /**
+   * The source's own severity label, where it publishes one. Carried verbatim;
+   * never ranked or compared across sources, because an NWS CAP "Severe" and
+   * an earthquake magnitude are not points on one scale.
+   */
+  sourceSeverity: string | null;
   place: string | null;
   description: string | null;
   sourceUrl: string;

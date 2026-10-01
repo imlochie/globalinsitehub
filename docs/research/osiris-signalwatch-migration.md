@@ -137,8 +137,8 @@ UI  (Signalwatch, unchanged — must not know an adapter came from OSIRIS)
 | --- | --- | --- |
 | 0 | Architecture + inventory | **done** (`3151af3`, `46d00a2`, this document) |
 | 1 | One clean OSIRIS-derived provider + the honest fetch abstraction | **done** — Digitraffic weathercams |
-| 2 | Camera corpus migration | blocked — TfL/WSDOT/Caltrans all RESEARCH, no primary terms |
-| 3 | Environmental / hazard sources | next candidate: NASA FIRMS |
+| 2 | Camera corpus migration | blocked — TfL/WSDOT/Caltrans all RESEARCH, no primary terms. **Batch 2 was spent on NOAA/NWS alerts instead**, which cleared admission outright |
+| 3 | Environmental / hazard sources | **partly done** — NOAA/NWS alerts migrated in Batch 2; NASA FIRMS still pending a MAP_KEY decision |
 | 4 | Aircraft | blocked — ADSB.lol ADOPT WITH CONDITIONS, operator contact outstanding |
 | 5 | Maritime / infrastructure / space / news | after 2–3 |
 
