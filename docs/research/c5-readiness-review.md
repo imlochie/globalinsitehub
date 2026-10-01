@@ -620,9 +620,25 @@ There is no image, tile, raster, WMS, GetMap or reflectivity endpoint. The
 C4 inference — that an API named "Radar" is not a radar-imagery source — is
 now confirmed at the contract level rather than from prose.
 
-**Consequence:** the absence of an Australian radar source at $0 is
-established, not merely unproven. It can be stated as a permanent declared
-absence rather than a gap pending research.
+**Consequence — stated at two different strengths, which must not be
+conflated:**
+
+| Claim | Strength | Rests on |
+|---|---|---|
+| **DPIRD does not publish reflectivity imagery through its Radar API** | **Established.** A contract fact. | This fetch alone |
+| **No admitted Australian radar source at $0** | **Supported, composite, defeasible.** | C4's combined evidence base, not this fetch |
+
+The second claim is a *conjunction*: BOM places radar behind a paid data
+licence agreement (terms fact); DPIRD publishes no reflectivity imagery
+(contract fact); Open-Meteo precipitation is modelled output and is not
+radar (category fact). Together those exhaust the Australian radar sources
+researched in C4 — but "researched in C4" is the actual boundary, not
+"anywhere".
+
+So the UI absence in §G is justified by *no currently admitted source*,
+which is the honest basis for it. It is not a claim that no such source can
+exist, and a future provider could defeat it without any of the three facts
+above changing. Only the first row is settled by reading an API contract.
 
 **This does not clear DPIRD rainfall for implementation.** The same fetch
 found that the Radar API's licence basis is unsupported (finding 1 below).

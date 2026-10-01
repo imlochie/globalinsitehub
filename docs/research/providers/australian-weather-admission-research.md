@@ -566,7 +566,7 @@ and one is **weaker** than recorded above.
 
 | Finding | Effect on the C4 verdict |
 |---|---|
-| Radar API has **no** image/tile/raster/reflectivity endpoint — six endpoints, all metadata or numeric rainfall | Confirms "derived field, not imagery" at contract level. **No Australian radar at $0 is now established, not inferred.** |
+| Radar API has **no** image/tile/raster/reflectivity endpoint — six endpoints, all metadata or numeric rainfall | Confirms "derived field, not imagery" **for DPIRD**, at contract level. The broader "no admitted AU radar at $0" conclusion rests on this *plus* BOM's paid licence and Open-Meteo's modelled category — it is a composite C4 finding, not a DPIRD one. |
 | Weather API is ~26 endpoints, **all station-keyed**, no grid/bbox/tile | DPIRD station data are point **observations**, not a spatial product |
 | Radar API's terms-of-service link points to the dead `agric.wa.gov.au/n/6732`, while the Weather API links to the live DPIRD terms | **Weakens** the rainfall licence basis. CC BY 3.0 AU was applied to both from one terms page; that is unsupported for the Radar API. Treat rainfall as **licence-pending**. |
 | Weather API also serves 15-min through yearly summaries | One provider spans instrument observation *and* historical summary |
