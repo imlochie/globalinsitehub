@@ -88,6 +88,35 @@ for (const [relative, dimensions] of requiredPngs) {
   );
 }
 
+// --- service worker must not cache the packaged frontend ----------------
+/**
+ * Tauri serves from `tauri.localhost`, which WebView2 treats as a secure
+ * context, so a precaching service worker will register and then serve its
+ * cached index.html on every later launch — a freshly built executable then
+ * silently runs the previous bundle. The desktop frontend build emits a
+ * self-destroying worker instead; this asserts the staged assets are that
+ * build and not the web variant.
+ */
+const swPath = path.join(frontendDist, "sw.js");
+let swSource = null;
+try {
+  swSource = await readFile(swPath, "utf8");
+} catch {
+  // No worker at all is also acceptable for a desktop bundle.
+}
+if (swSource !== null) {
+  assert.match(
+    swSource,
+    /registration\.unregister\(\)/,
+    "the packaged frontend ships a caching service worker; rebuild it with scripts/build-frontend.mjs so the worker self-destructs",
+  );
+  assert.doesNotMatch(
+    swSource,
+    /precacheAndRoute|workbox-/,
+    "the packaged frontend must not precache assets",
+  );
+}
+
 // --- API reachability: the bundled sidecar ------------------------------
 /**
  * Tauri serves the frontend from tauri://localhost, where a relative "/api"
@@ -246,6 +275,7 @@ console.log(
     `  API           bundled sidecar on a runtime-chosen loopback port`,
     `  sidecar files ${sidecarChecked ? "prepared" : "NOT prepared (run prepare-sidecar.mjs)"}`,
     `  bundle target ${bundleTarget}`,
+    `  service worker ${swSource === null ? "absent" : "self-destroying"}`,
     "  signing      none (unsigned, $0 posture)",
   ].join("\n"),
 );

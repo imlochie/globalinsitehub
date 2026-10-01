@@ -7,7 +7,7 @@
     "frontendDist": "../../signalwatch/dist/public",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm --filter @workspace/signalwatch run dev",
-    "beforeBuildCommand": "pnpm --filter @workspace/signalwatch run build && pnpm --filter @workspace/signalwatch-desktop exec node scripts/prepare-sidecar.mjs"
+    "beforeBuildCommand": "pnpm --filter @workspace/signalwatch-desktop exec node scripts/build-frontend.mjs && pnpm --filter @workspace/signalwatch-desktop exec node scripts/prepare-sidecar.mjs"
   },
   "app": {
     "security": {

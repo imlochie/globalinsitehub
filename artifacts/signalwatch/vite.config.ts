@@ -28,6 +28,13 @@ if (!basePath) {
   );
 }
 
+/**
+ * Set by the Tauri build (scripts/build-frontend.mjs). The desktop bundle is
+ * loaded from local resources and talks to a bundled API, so a service worker
+ * adds nothing and actively breaks rebuilds by serving a cached document.
+ */
+const isDesktopBuild = process.env.SIGNALWATCH_DESKTOP_BUILD === '1';
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -36,6 +43,25 @@ export default defineConfig({
     runtimeErrorOverlay(),
     VitePWA({
       registerType: 'autoUpdate',
+      /**
+       * The packaged desktop shell must not keep a service worker.
+       *
+       * Tauri serves the app from `tauri.localhost`, a `*.localhost` origin,
+       * which WebView2 treats as a secure context — so the worker registers
+       * and then precaches `index.html` and the hashed assets. Every later
+       * launch is served the cached document, which still points at the
+       * previous bundle, so a freshly built executable silently runs stale
+       * frontend code.
+       *
+       * `selfDestroying` emits a worker that unregisters itself and clears its
+       * caches. That matters more than simply not registering one: machines
+       * that already have a worker installed need something that actively
+       * cleans up, and the browser always revalidates the worker script, so
+       * the replacement is picked up on the next launch.
+       *
+       * Normal web builds are untouched and keep the full PWA behaviour.
+       */
+      selfDestroying: isDesktopBuild,
       includeAssets: [
         'favicon.svg',
         'pwa-192.png',
