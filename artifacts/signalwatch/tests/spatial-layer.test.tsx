@@ -120,14 +120,18 @@ test("weather registers in the one authoritative registry as an imagery layer", 
   assert.equal(definition.providers[0].coverage?.scope, "regional");
 });
 
-test("an imagery layer declares no inspector, globe, search or sampling", () => {
+test("an imagery layer declares no inspector, search or sampling", () => {
   const definition = layerRegistry.require("weather");
   assert.equal(definition.capabilities.map, true);
-  // A surface has no record to select and no marker to place on the globe.
+  // A surface still has no record to select and no marker to sample.
   assert.equal(definition.capabilities.inspector, false);
-  assert.equal(definition.capabilities.globe, false);
   assert.equal(definition.capabilities.search, false);
   assert.equal(definition.sampling, undefined);
+  // Checkpoint C3 refined the globe rule: a spatial layer may now declare
+  // `globe`, which means "an authorised globe renderer exists for this
+  // surface" — never "turn this into markers". The bans above are what keep
+  // it out of the record pipelines; see tests/globe-imagery.test.tsx.
+  assert.equal(definition.capabilities.globe, true);
 });
 
 test("a field layer registers with the same shared machinery", () => {
@@ -166,16 +170,31 @@ test("a spatial layer claiming the inspector capability is rejected", () => {
   );
 });
 
-test("a spatial layer claiming the globe capability is rejected", () => {
+test("a spatial layer claiming the globe capability is accepted from C3", () => {
+  // Superseded Checkpoint B rule. The globe gained a surface renderer, so
+  // the capability is no longer a contradiction for a spatial layer. What
+  // is still rejected is a spatial layer claiming record semantics.
+  assert.doesNotThrow(() =>
+    createLayerRegistry([
+      {
+        ...weatherLayerDefinition,
+        capabilities: { ...weatherLayerDefinition.capabilities, globe: true },
+      },
+    ]),
+  );
   assert.throws(
     () =>
       createLayerRegistry([
         {
           ...weatherLayerDefinition,
-          capabilities: { ...weatherLayerDefinition.capabilities, globe: true },
+          capabilities: {
+            ...weatherLayerDefinition.capabilities,
+            globe: true,
+            inspector: true,
+          },
         },
       ]),
-    /must not declare the globe capability/,
+    /must not declare the inspector capability/,
   );
 });
 
@@ -664,12 +683,23 @@ test("the inspector never opens for the imagery layer", () => {
   );
 });
 
-test("the globe renders only observation layers", () => {
-  const globeLayers = layerRegistry
-    .withCapability("globe")
-    .map((definition) => definition.kind);
+test("the globe draws markers for observation layers only", () => {
+  // `globe` now spans two renderers, so the marker guarantee is expressed
+  // the way marker consumers must actually express it: capability AND kind.
+  const globeLayers = layerRegistry.withCapability("globe");
   assert.ok(globeLayers.length > 0);
-  assert.ok(globeLayers.every((kind) => kind === "observation"));
+
+  const markerLayers = globeLayers.filter((d) => d.kind === "observation");
+  assert.ok(markerLayers.length > 0);
+  // Every layer eligible for markers can actually produce one.
+  for (const definition of markerLayers) {
+    assert.ok(definition.display.markerColor);
+  }
+  // Every globe-capable spatial layer is a surface, never a marker source.
+  for (const definition of globeLayers.filter((d) => d.kind !== "observation")) {
+    assert.equal(definition.capabilities.inspector, false);
+    assert.equal(definition.sampling, undefined);
+  }
 });
 
 test("registering weather leaves the observation layers untouched", () => {

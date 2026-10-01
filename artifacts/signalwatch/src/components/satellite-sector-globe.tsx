@@ -18,7 +18,18 @@ import {
 import { countryFeatures } from "@/lib/country-boundaries";
 import { GLOBE_DEFAULT_VIEW } from "@/lib/regional-priority";
 import {
+  GLOBE_IMAGERY_ALTITUDE,
+  GLOBE_IMAGERY_CURVATURE_RESOLUTION,
+  globeImagerySignature,
+  toGlobeImageryTiles,
+  type GlobeImageryTile,
+} from "@/lib/globe-imagery";
+import type { RenderableImagery } from "@/lib/spatial-layers";
+import {
   AmbientLight,
+  DoubleSide,
+  MeshLambertMaterial,
+  TextureLoader,
   DirectionalLight,
   Mesh,
   MeshBasicMaterial,
@@ -160,6 +171,7 @@ export function SatelliteSectorGlobe({
   observations,
   selectedObservation,
   onSelectObservation,
+  imagery,
 }: {
   selectedSectorId: SectorId;
   pulsingSectorId?: SectorId;
@@ -167,6 +179,11 @@ export function SatelliteSectorGlobe({
   observations: GlobalObservation[];
   selectedObservation: GlobalObservation | null;
   onSelectObservation: (observation: ObservationIdentity) => void;
+  /**
+   * Admitted spatial surfaces, exactly as the 2D map receives them. The
+   * globe re-projects them; it does not re-decide whether they may be drawn.
+   */
+  imagery?: RenderableImagery[];
 }) {
   const [textureMode, setTextureMode] = useState<"signal" | "satellite">(
     "signal",
@@ -315,6 +332,73 @@ export function SatelliteSectorGlobe({
    * must never enter an observation collection where it could be selected,
    * inspected or counted as a record.
    */
+  /**
+   * Projected weather surfaces.
+   *
+   * Keyed on the render signature rather than on the surface array, because
+   * a fresh array arrives on every settled view change while the imagery
+   * identity usually has not moved. Without this, rotating the globe would
+   * rebuild every patch and re-request every texture from NOAA.
+   */
+  const tiles = useMemo(
+    () => toGlobeImageryTiles(imagery ?? []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [globeImagerySignature(toGlobeImageryTiles(imagery ?? []))],
+  );
+
+  /**
+   * One material per patch, built once per imagery identity.
+   *
+   * MeshLambertMaterial, not MeshBasicMaterial, is the deliberate choice: a
+   * basic material ignores lighting, so radar would glow at full strength
+   * across the night side and cut a bright hole in the terminator. A Lambert
+   * surface is lit by the same solar light as the Earth beneath it, so
+   * weather on the night side is correctly dim and the day/night boundary
+   * survives. Weather is subordinate to the lighting model, not an exception
+   * to it.
+   */
+  const [failedTextures, setFailedTextures] = useState<string[]>([]);
+  useEffect(() => setFailedTextures([]), [tiles]);
+
+  const tileMaterials = useMemo(() => {
+    const loader = new TextureLoader();
+    // WebGL refuses to sample a cross-origin texture unless the response is
+    // CORS-clean, so this must be set. If NOAA does not return an
+    // Access-Control-Allow-Origin header the load fails outright — it does
+    // not silently degrade — and the onError path below reports that as a
+    // renderer limitation rather than leaving an empty sphere that reads as
+    // "no weather". See docs/research/globe-imagery-architecture.md §6.
+    loader.setCrossOrigin("anonymous");
+    return new Map(
+      tiles.map((tile) => [
+        tile.key,
+        new MeshLambertMaterial({
+          map: loader.load(tile.textureUrl, undefined, undefined, () =>
+            setFailedTextures((previous) =>
+              previous.includes(tile.areaName)
+                ? previous
+                : [...previous, tile.areaName],
+            ),
+          ),
+          transparent: true,
+          opacity: tile.opacity,
+          side: DoubleSide,
+          depthWrite: false,
+        }),
+      ]),
+    );
+  }, [tiles]);
+
+  useEffect(
+    () => () => {
+      for (const material of tileMaterials.values()) {
+        material.map?.dispose();
+        material.dispose();
+      }
+    },
+    [tileMaterials],
+  );
+
   const subsolarMarker = useMemo(
     () => [{ lat: solar.subsolarLatitude, lng: solar.subsolarLongitude }],
     [solar],
@@ -448,6 +532,22 @@ export function SatelliteSectorGlobe({
         showAtmosphere={textureMode === "signal"}
         atmosphereColor={textureMode === "signal" ? "#b94bbb" : "#a892b8"}
         atmosphereAltitude={textureMode === "signal" ? 0.13 : 0.09}
+        tilesData={tiles}
+        tileLat="lat"
+        tileLng="lng"
+        tileAltitude={GLOBE_IMAGERY_ALTITUDE}
+        tileWidth="widthDegrees"
+        tileHeight="heightDegrees"
+        tileUseGlobeProjection
+        tileCurvatureResolution={GLOBE_IMAGERY_CURVATURE_RESOLUTION}
+        tileMaterial={(tile: object) =>
+          tileMaterials.get((tile as GlobeImageryTile).key)!
+        }
+        tilesTransitionDuration={0}
+        tileLabel={(tile: object) => {
+          const patch = tile as GlobeImageryTile;
+          return `${patch.areaName} — ${patch.attribution}`;
+        }}
         customLayerData={subsolarMarker}
         customThreeObject={() =>
           new Mesh(
@@ -565,6 +665,25 @@ export function SatelliteSectorGlobe({
             solar.subsolarLongitude >= 0 ? "E" : "W"
           } · calculated, live UTC`}
         </div>
+        {/*
+          Surface provenance. The globe must be able to state the same
+          source, frame and attribution the 2D panel states; a projection
+          difference is allowed, a disagreement about the provider is not.
+          When a texture fails, that is said plainly — an undrawn surface is
+          a statement about the source, never a report of clear weather.
+        */}
+        {tiles.length > 0 ? (
+          <div
+            className="mt-1 font-mono text-[7px] uppercase tracking-[0.12em] text-cyan-200/60"
+            data-testid="text-globe-imagery-readout"
+          >
+            {failedTextures.length > 0
+              ? `Radar surface could not be drawn for ${failedTextures.join(", ")} · source unavailable to this renderer, not a report of clear conditions`
+              : `${tiles.length} radar surface${tiles.length === 1 ? "" : "s"} · ${
+                  tiles[0].time ? `frame ${tiles[0].time}` : "latest frame"
+                } · ${tiles[0].attribution}`}
+          </div>
+        ) : null}
       </div>
 
       <div

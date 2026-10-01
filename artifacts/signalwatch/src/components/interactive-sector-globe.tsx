@@ -232,6 +232,7 @@ export function InteractiveSectorGlobe({
               <WebGLErrorBoundary fallback={fallback}>
                 <Suspense fallback={fallback}>
                   <SatelliteSectorGlobe
+                    imagery={imagery}
                     selectedSectorId={selectedSectorId}
                     pulsingSectorId={activeUpdate?.sectorId}
                     onSelectSector={onSelectSector}
@@ -294,7 +295,14 @@ export function InteractiveSectorGlobe({
               <>
                 {layerRegistry
                   .operational()
-                  .filter((definition) => definition.capabilities.globe)
+                  // `globe` now also admits spatial surfaces, which have no
+                  // marker colours. This legend is specifically the marker
+                  // key, so it must filter on kind as well as capability.
+                  .filter(
+                    (definition) =>
+                      definition.capabilities.globe &&
+                      definition.kind === "observation",
+                  )
                   .map((definition) => (
                     <span
                       key={String(definition.id)}

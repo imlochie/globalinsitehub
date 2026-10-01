@@ -86,7 +86,15 @@ export type LayerCategory =
 export type LayerCapabilities = {
   /** Renderable on the 2D Leaflet map. */
   map: boolean;
-  /** Renderable on the globe. */
+  /**
+   * Renderable on the globe.
+   *
+   * Means different things for the two kinds, which is why consumers must
+   * check `kind` rather than treating this as one capability:
+   *   observation layer -> its records may be drawn as point markers;
+   *   spatial layer     -> its surface may be projected onto the sphere.
+   * A spatial layer with `globe: true` must never be asked for markers.
+   */
   globe: boolean;
   /** Selectable records open the shared observation inspector. */
   inspector: boolean;
@@ -698,8 +706,9 @@ export const weatherLayerDefinition: LayerDefinition = {
   capabilities: {
     // Drawn on the 2D map as a raster overlay.
     map: true,
-    // The globe renders point markers; a raster surface is not one.
-    globe: false,
+    // The globe renders this as a projected spatial surface, never as
+      // markers. See lib/globe-imagery.ts.
+      globe: true,
     // There is no record to select, so the observation inspector must never
     // open for this layer. Clicking imagery is not a selection.
     inspector: false,
@@ -843,8 +852,8 @@ export function isSpatialLayer(definition: LayerDefinition): boolean {
  *    silently cap nothing while implying a bound exists;
  *  - a spatial layer with `inspector: true` would let a click on a surface
  *    open the record inspector and fabricate a selected observation;
- *  - a spatial layer with `globe: true` would be asked for markers it cannot
- *    produce;
+ *  - a spatial layer with `globe: true` MAY now be rendered on the globe, but
+ *    only by the spatial-surface renderer: see the capability note below;
  *  - an observation layer missing marker colours would render invisibly.
  *
  * Throwing is correct: a misconfigured layer is a programming error that
@@ -878,11 +887,13 @@ export function validateLayerDefinition(definition: LayerDefinition): void {
         `Layer "${id}" is ${definition.kind} and must not declare the inspector capability: a surface has no selectable record.`,
       );
     }
-    if (definition.capabilities.globe) {
-      throw new Error(
-        `Layer "${id}" is ${definition.kind} and must not declare the globe capability: the globe renders point markers only.`,
-      );
-    }
+    // `globe` is deliberately permitted for spatial layers from Checkpoint C3
+    // onward. It no longer means "turn this into globe markers" — it means
+    // "an authorised globe renderer exists for this surface". The two
+    // renderers are kept apart by kind, not by this flag: marker consumers
+    // must filter on `kind === "observation"` as well, which the globe
+    // legend does. The inspector and sampling bans above are what actually
+    // keep a surface out of the record pipelines.
     return;
   }
 
