@@ -148,7 +148,14 @@ export default defineConfig({
         'attached_assets',
       ),
     },
-    dedupe: ['react', 'react-dom'],
+    /**
+     * A second copy of react-query means a second QueryClientContext, so the
+     * provider sets a client the generated hooks never see and every data
+     * component throws "No QueryClient set". It happened here because
+     * @workspace/api-client-react is consumed as source, so its own
+     * node_modules resolution applied.
+     */
+    dedupe: ['react', 'react-dom', '@tanstack/react-query'],
   },
   root: path.resolve(import.meta.dirname),
   build: {
