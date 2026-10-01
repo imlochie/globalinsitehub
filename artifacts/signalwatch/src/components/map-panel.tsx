@@ -2,12 +2,33 @@ import L from "leaflet";
 import { useEffect, useMemo, useRef } from "react";
 import type { CameraRecord } from "@workspace/api-client-react";
 import type { BriefingEvent } from "@/lib/monitoring";
+import {
+  buildWmsLayerOptions,
+  type RenderableImagery,
+} from "@/lib/spatial-layers";
 import "leaflet/dist/leaflet.css";
 import "./map-panel.css";
 
 const OPENSTREETMAP_TILES =
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const EMPTY_CAMERAS: CameraRecord[] = [];
+const EMPTY_IMAGERY: RenderableImagery[] = [];
+
+/**
+ * CRS codes this map can actually request, mapped to Leaflet's own CRS
+ * objects. Leaflet reads `crs.code` to build the WMS CRS/SRS parameter, so a
+ * raw string cannot be passed through.
+ *
+ * Unknown codes are NOT silently coerced to the map's default. Doing so would
+ * label the request with one CRS while the bbox was computed in another,
+ * which produces a plausible-looking but misplaced overlay — the worst
+ * possible failure for a layer whose entire value is being in the right
+ * place. An unsupported CRS means the surface is skipped.
+ */
+const SUPPORTED_CRS: Record<string, L.CRS> = {
+  "EPSG:3857": L.CRS.EPSG3857,
+  "EPSG:4326": L.CRS.EPSG4326,
+};
 
 type SignalMapProps = {
   events: BriefingEvent[];
@@ -16,6 +37,14 @@ type SignalMapProps = {
   selectedEventId?: string;
   onSelectCamera?: (cameraId: string) => void;
   onSelectEvent?: (eventId: string) => void;
+  /**
+   * Continuous surfaces to draw beneath the markers.
+   *
+   * Provider-agnostic by construction: each entry already carries its own
+   * service descriptor, bounds, opacity and attribution, so this component
+   * contains no condition for any particular provider.
+   */
+  imagery?: RenderableImagery[];
   compact?: boolean;
   fillContainer?: boolean;
   loading?: boolean;
@@ -29,6 +58,7 @@ export function SignalMap({
   selectedEventId,
   onSelectCamera,
   onSelectEvent,
+  imagery = EMPTY_IMAGERY,
   compact = false,
   fillContainer = false,
   loading = false,
@@ -96,6 +126,68 @@ export function SignalMap({
       mapRef.current = null;
     };
   }, []);
+
+  /**
+   * Raster surfaces.
+   *
+   * Leaflet's own WMS client does the work. That is a deliberate choice over
+   * anything bespoke: it is viewport-driven, so it requests only the tiles
+   * the current view needs and re-requests on pan and zoom without this
+   * component tracking the extent; it keeps the bytes in the browser's image
+   * cache instead of in React state; and it honours a `bounds` option.
+   *
+   * `bounds` carries the coverage guarantee. Outside the provider's declared
+   * areas Leaflet issues no request at all, so there is no code path that
+   * can paint a surface over somewhere the provider does not observe. Empty
+   * space beyond the coverage edge therefore means "no source here", and the
+   * panel says so — it is never a claim that conditions are clear.
+   *
+   * One Leaflet layer is created per coverage area rather than one for their
+   * combined envelope. NOAA's radar regions run from Guam to the Caribbean,
+   * so their envelope would include Europe, Africa and Asia; the service
+   * would answer those tiles with transparent pixels, which on a map reads
+   * as "no precipitation here". Per-area layers make that impossible, and
+   * cost nothing: a layer whose bounds miss the viewport requests no tiles.
+   *
+   * Surfaces are added below the markers so point observations stay readable.
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (imagery.length === 0) return;
+
+    const layers = imagery.flatMap((surface) => {
+      const crs = SUPPORTED_CRS[surface.service.crs];
+      if (!crs) return [];
+      const { crs: _requested, ...options } = buildWmsLayerOptions(surface);
+      // An empty area list means the product is global: one unclipped layer.
+      const clips: Array<L.LatLngBounds | undefined> =
+        surface.areas.length > 0
+          ? surface.areas.map((area) =>
+              L.latLngBounds(
+                L.latLng(area.south, area.west),
+                L.latLng(area.north, area.east),
+              ),
+            )
+          : [undefined];
+
+      return clips.map((bounds) => {
+        const wms = L.tileLayer.wms(surface.service.endpoint, {
+          ...options,
+          crs,
+          // Keep rasters under the marker pane; markers remain clickable.
+          pane: "tilePane",
+          ...(bounds ? { bounds } : {}),
+        });
+        wms.addTo(map);
+        return wms;
+      });
+    });
+
+    return () => {
+      for (const layer of layers) layer.remove();
+    };
+  }, [imagery]);
 
   useEffect(() => {
     const map = mapRef.current;

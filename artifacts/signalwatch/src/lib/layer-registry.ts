@@ -46,6 +46,26 @@ export type LayerId = KnownLayerId | (string & {});
  */
 export type LayerStatus = "operational" | "planned";
 
+/**
+ * What a layer *is*, structurally.
+ *
+ *   observation — discrete records, each with its own coordinate and identity.
+ *                 Rendered as markers, selectable, sampled.
+ *   imagery     — a continuous raster surface served by a provider. No record
+ *                 identity, no single coordinate. Rendered viewport-driven,
+ *                 not selectable, never sampled.
+ *   field       — a gridded numeric surface (model output). Contract only in
+ *                 this batch; no field provider is implemented.
+ *
+ * This is required rather than defaulted on purpose. A silent
+ * `"observation"` default would let a future spatial layer register as a
+ * point layer and inherit marker sampling and inspector selection, which is
+ * exactly the failure this discriminant exists to prevent.
+ *
+ * See docs/research/weather-layer-architecture.md.
+ */
+export type LayerKind = "observation" | "imagery" | "field";
+
 export type LayerCategory =
   | "imagery"
   | "reporting"
@@ -70,16 +90,23 @@ export type LayerCapabilities = {
   providerFiltering: boolean;
 };
 
-/** Presentation metadata used by shared renderers (globe, map, controls). */
+/**
+ * Presentation metadata used by shared renderers (globe, map, controls).
+ *
+ * The four `marker*` fields are optional because a spatial layer genuinely
+ * has no markers — a radar mosaic is not drawn as dots, and giving it a
+ * marker colour would be a fiction. `validateLayerDefinition` requires them
+ * for `kind: "observation"`, so observation layers cannot quietly omit them.
+ */
 export type LayerDisplay = {
-  /** Marker fill colour used by globe/map renderers. */
-  markerColor: string;
-  /** Marker stroke colour. */
-  markerStrokeColor: string;
-  /** Label colour used for the selected marker caption. */
-  markerTextColor: string;
-  /** Tailwind classes for the non-WebGL fallback marker dot. */
-  markerClassName: string;
+  /** Marker fill colour used by globe/map renderers. Observation layers only. */
+  markerColor?: string;
+  /** Marker stroke colour. Observation layers only. */
+  markerStrokeColor?: string;
+  /** Label colour used for the selected marker caption. Observation layers only. */
+  markerTextColor?: string;
+  /** Tailwind classes for the non-WebGL fallback marker dot. Observation layers only. */
+  markerClassName?: string;
   /** Short legend caption, e.g. "Camera catalogue". */
   legendLabel: string;
   /** Optional provenance note appended to marker tooltips. */
@@ -137,7 +164,14 @@ export type LayerDefinition = {
   description: string;
   status: LayerStatus;
   category: LayerCategory;
-  /** Observation discriminant produced by this layer's normalizer. */
+  /** Structural kind. Decides which pipeline and renderer the layer uses. */
+  kind: LayerKind;
+  /**
+   * Observation discriminant produced by this layer's normalizer.
+   *
+   * Only meaningful for `kind: "observation"`. Spatial layers set it to their
+   * own id, which keeps the field total without implying records exist.
+   */
   observationKind: string;
   enabledByDefault: boolean;
   capabilities: LayerCapabilities;
@@ -206,6 +240,7 @@ export const cameraLayerDefinition: LayerDefinition = {
     "Provider catalogue records. Individual feeds are not probed by Signalwatch.",
   status: "operational",
   category: "imagery",
+  kind: "observation",
   observationKind: "camera",
   enabledByDefault: true,
   capabilities: {
@@ -298,6 +333,7 @@ export const publicEventLayerDefinition: LayerDefinition = {
     "Civic incidents from free, openly licensed road authority feeds. Regional coverage only.",
   status: "operational",
   category: "reporting",
+  kind: "observation",
   observationKind: "public-event",
   enabledByDefault: true,
   capabilities: {
@@ -379,6 +415,7 @@ export const maritimeLayerDefinition: LayerDefinition = {
     "Vessel positions from free, openly licensed government AIS feeds. Regional coverage only.",
   status: "operational",
   category: "movement",
+  kind: "observation",
   observationKind: "vessel",
   enabledByDefault: false,
   capabilities: {
@@ -467,6 +504,7 @@ export const naturalHazardLayerDefinition: LayerDefinition = {
     "Earthquake and natural-event observations from free, openly licensed hazard sources.",
   status: "operational",
   category: "environment",
+  kind: "observation",
   observationKind: "natural-hazard",
   enabledByDefault: false,
   capabilities: {
@@ -554,6 +592,84 @@ export const naturalHazardLayerDefinition: LayerDefinition = {
   sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_HAZARD_MARKERS },
 };
 
+/**
+ * Weather — the first spatial layer.
+ *
+ * This layer does not produce observations. NOAA publishes a rendered radar
+ * mosaic covering a bounded part of the world; Signalwatch asks the provider
+ * for that surface and draws it, viewport by viewport. There are no records,
+ * so there is nothing to select, nothing to search and nothing to sample —
+ * which is why `inspector`, `search`, `providerFiltering` and `globe` are all
+ * false and no `sampling` strategy is declared.
+ *
+ * Coverage is the field that matters most here. The mosaic stops at the edge
+ * of NOAA's network. Beyond it Signalwatch has no radar source, and the
+ * coverage note says exactly that rather than letting an empty map imply
+ * clear skies.
+ *
+ * Admission: docs/research/providers/nws-radar-wms-admission.md.
+ * Architecture: docs/research/weather-layer-architecture.md.
+ */
+export const weatherLayerDefinition: LayerDefinition = {
+  id: "weather",
+  label: "Weather",
+  description:
+    "Continuous radar surfaces published by national meteorological services. " +
+    "Rendered as provider imagery, not as point records.",
+  status: "operational",
+  category: "environment",
+  kind: "imagery",
+  observationKind: "weather",
+  enabledByDefault: false,
+  capabilities: {
+    // Drawn on the 2D map as a raster overlay.
+    map: true,
+    // The globe renders point markers; a raster surface is not one.
+    globe: false,
+    // There is no record to select, so the observation inspector must never
+    // open for this layer. Clicking imagery is not a selection.
+    inspector: false,
+    // Nothing to text-search: a surface has no title or place name.
+    search: false,
+    // One admitted product; products are listed in the panel, not filtered.
+    providerFiltering: false,
+  },
+  display: {
+    legendLabel: "Radar surface",
+    tooltipNote: "provider imagery",
+    iconKey: "cloud",
+  },
+  providers: [
+    {
+      id: "noaa-nws-radar",
+      name: "NOAA / National Weather Service",
+      countries: ["US"],
+      // Verbatim copyrightText from the service's own metadata. NOAA content
+      // is public domain, but the disclaimer forbids implying endorsement or
+      // affiliation, so the attribution is reproduced exactly as published.
+      attribution:
+        "National Oceanic and Atmospheric Administration, NOAA, National Weather Service, NWS",
+      catalogueUrl:
+        "https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity_time/ImageServer",
+      licence: "U.S. public domain (NOAA/NWS)",
+      coverage: {
+        scope: "regional",
+        regions: [
+          "Continental United States",
+          "Alaska",
+          "Hawaii",
+          "Caribbean (Puerto Rico and the U.S. Virgin Islands)",
+          "Guam",
+        ],
+        note:
+          "MRMS composite base reflectivity. NOAA observes the continental United " +
+          "States, Alaska, Hawaii, the Caribbean and Guam only. Elsewhere there is " +
+          "no radar source, which is not a report of clear conditions.",
+      },
+    },
+  ],
+};
+
 function plannedLayer(
   id: KnownLayerId,
   label: string,
@@ -566,6 +682,7 @@ function plannedLayer(
     description: `${label} is not connected in this workspace. No feed is implemented or probed.`,
     status: "planned",
     category,
+    kind: "observation",
     observationKind: id,
     enabledByDefault: false,
     capabilities: noCapabilities,
@@ -584,7 +701,6 @@ function plannedLayer(
 export const plannedLayerDefinitions: LayerDefinition[] = [
   plannedLayer("aircraft", "Aircraft", "movement", "aircraft"),
   plannedLayer("satellites", "Satellites", "movement", "satellite"),
-  plannedLayer("weather", "Weather", "environment", "cloud"),
   plannedLayer("infrastructure", "Infrastructure", "infrastructure", "building"),
 ];
 
@@ -601,16 +717,80 @@ export type LayerRegistry = {
   operational(): LayerDefinition[];
   planned(): LayerDefinition[];
   withCapability(capability: keyof LayerCapabilities): LayerDefinition[];
+  /** Definitions of one structural kind. Shared pipelines filter with this. */
+  byKind(kind: LayerKind): LayerDefinition[];
   defaultEnablement(): LayerFlags;
   /** Returns a new registry with extra/overriding definitions (immutable). */
   with(...definitions: LayerDefinition[]): LayerRegistry;
 };
 
+/** True for layers that produce discrete, selectable records. */
+export function isObservationLayer(definition: LayerDefinition): boolean {
+  return definition.kind === "observation";
+}
+
+/** True for layers that produce continuous surfaces (imagery or field). */
+export function isSpatialLayer(definition: LayerDefinition): boolean {
+  return definition.kind === "imagery" || definition.kind === "field";
+}
+
+/**
+ * Rejects definitions whose kind and configuration contradict each other.
+ *
+ * These are not style rules. Each one blocks a specific way the two layer
+ * kinds could quietly corrupt each other:
+ *
+ *  - a spatial layer carrying `sampling` would be handed to the marker
+ *    sampler, whose `maxMarkers` cap is meaningless for a raster and would
+ *    silently cap nothing while implying a bound exists;
+ *  - a spatial layer with `inspector: true` would let a click on a surface
+ *    open the record inspector and fabricate a selected observation;
+ *  - a spatial layer with `globe: true` would be asked for markers it cannot
+ *    produce;
+ *  - an observation layer missing marker colours would render invisibly.
+ *
+ * Throwing is correct: a misconfigured layer is a programming error that
+ * should never reach a user as a subtly wrong map.
+ */
+export function validateLayerDefinition(definition: LayerDefinition): void {
+  const id = String(definition.id);
+  if (isSpatialLayer(definition)) {
+    if (definition.sampling) {
+      throw new Error(
+        `Layer "${id}" is ${definition.kind} and must not declare a sampling strategy: marker caps do not apply to continuous surfaces.`,
+      );
+    }
+    if (definition.capabilities.inspector) {
+      throw new Error(
+        `Layer "${id}" is ${definition.kind} and must not declare the inspector capability: a surface has no selectable record.`,
+      );
+    }
+    if (definition.capabilities.globe) {
+      throw new Error(
+        `Layer "${id}" is ${definition.kind} and must not declare the globe capability: the globe renders point markers only.`,
+      );
+    }
+    return;
+  }
+
+  const missing = (
+    ["markerColor", "markerStrokeColor", "markerTextColor", "markerClassName"] as const
+  ).filter((key) => !definition.display[key]);
+  if (missing.length > 0) {
+    throw new Error(
+      `Layer "${id}" is an observation layer and must declare ${missing.join(", ")}.`,
+    );
+  }
+}
+
 export function createLayerRegistry(
   definitions: readonly LayerDefinition[],
 ): LayerRegistry {
   const byId = new Map<LayerId, LayerDefinition>();
-  for (const definition of definitions) byId.set(definition.id, definition);
+  for (const definition of definitions) {
+    validateLayerDefinition(definition);
+    byId.set(definition.id, definition);
+  }
   const ordered = [...byId.values()];
 
   return {
@@ -632,6 +812,7 @@ export function createLayerRegistry(
       ordered.filter((definition) => definition.status === "planned"),
     withCapability: (capability) =>
       ordered.filter((definition) => definition.capabilities[capability]),
+    byKind: (kind) => ordered.filter((definition) => definition.kind === kind),
     defaultEnablement() {
       const enablement: LayerFlags = {};
       for (const definition of ordered) {
@@ -650,6 +831,7 @@ export const layerRegistry: LayerRegistry = createLayerRegistry([
   publicEventLayerDefinition,
   maritimeLayerDefinition,
   naturalHazardLayerDefinition,
+  weatherLayerDefinition,
   ...plannedLayerDefinitions,
 ]);
 

@@ -50,6 +50,7 @@ const buoyLayerDefinition: LayerDefinition = {
   description: "Synthetic layer registered only by the regression suite.",
   status: "operational",
   category: "environment",
+  kind: "observation",
   observationKind: "buoy",
   enabledByDefault: true,
   capabilities: {

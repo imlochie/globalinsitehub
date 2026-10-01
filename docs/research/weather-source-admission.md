@@ -290,3 +290,104 @@ Proposed instead:
 
 This is a recommendation, not a decision taken unilaterally — the brief was
 explicit about the intended order, and reversing it is the user's call.
+
+---
+
+## Weather Batch 1 — built 2026-10-01
+
+The recommendation above was accepted. Weather Batch 1 shipped as **the
+spatial layer kind + NWS radar via WMS**; GFS remains Batch 2.
+
+Full architecture: **`docs/research/weather-layer-architecture.md`**.
+Provider admission: **`docs/research/providers/nws-radar-wms-admission.md`**.
+
+### What the spatial abstraction actually is
+
+`LayerDefinition` now carries a required, type-safe
+`kind: "observation" | "imagery" | "field"`. All three kinds share the one
+authoritative layer registry, provenance, attribution, coverage, freshness and
+provider health; they differ only in what they carry and how they render.
+
+Weather registers as an **imagery** layer in the same registry as the four
+observation layers. No second registry exists. `createLayerRegistry` now
+validates kind consistency and throws on contradictions — a spatial layer
+declaring marker sampling, the record inspector or the globe, or an
+observation layer with no marker colours. Those are the four ways the two
+kinds could have quietly corrupted each other.
+
+`BaseObservation` was **not** extended. It hard-requires `latitude`,
+`longitude`, `id` and `key`; a radar mosaic has none of them, and inventing a
+bbox centroid would fabricate a coordinate no provider published.
+
+The `field` contract is declared and type-checked but has no runtime. **No
+GRIB2 decoder and no GFS ingestion exist in this codebase.**
+
+### Radar admission — implemented as recorded
+
+NOAA/NWS MRMS composite base reflectivity, WMS 1.3.0, layer
+`radar_base_reflectivity_time`, `image/png`, transparent, keyless, public
+domain. All provider specifics live in
+`artifacts/api-server/src/weather-sources/nws-radar.ts`; nothing downstream
+contains a NOAA condition.
+
+### CRS decision
+
+**EPSG:3857**, requested explicitly. The service also offers CRS:84 and
+EPSG:4326, but WMS 1.3.0 reverses axis order for EPSG:4326
+(`BBOX = miny,minx,maxy,maxx`), and 3857 is the map's native projection, so
+there is no reprojection and no axis trap. A product advertising a CRS the map
+cannot request is **not drawn** rather than substituted — a silently
+substituted projection puts a plausible-looking surface in the wrong place.
+
+### Coverage decision
+
+Coverage is a **list of named boxes**, not one box. NOAA publishes a single
+envelope of −176 → 150 longitude, which is the min/max of five disjoint
+regions spanning the Pacific; literally it contains Europe, Africa and Asia.
+Clipping to it would have requested transparent tiles over Berlin, and
+transparent radar over Berlin reads as *no precipitation over Berlin*.
+
+So the render clip is five boxes drawn generously around the regions NOAA
+itself names — CONUS, Alaska, Hawaii, Caribbean, Guam — each strictly inside
+the published envelope, so the clip only narrows the provider's claim. Leaflet
+is given one bounded WMS layer per area and therefore issues **no request at
+all** outside them. There is no code path that can paint an uncovered region.
+
+Canada is **not** claimed. An older NOAA MapServer description mentioned it;
+this service's own metadata does not.
+
+### Freshness decision
+
+Three timestamps are kept separate: the frame's valid time (read from the WMS
+time dimension), Signalwatch's retrieval time, and model valid/run time
+(`null` for radar, because MRMS base reflectivity is an observation).
+
+Refresh interval **600 000 ms (10 min)**; stale after **1 800 000 ms (30 min,
+three missed cycles)**. NOAA's metadata states both "every 5 minutes" and
+"approximately every ten minutes"; the slower figure was taken. The NWS
+*Public Notice of Appropriate Use* defines requesting faster than the data
+refreshes as abuse and reserves the right to block IPs, so this is a terms
+constraint, not a performance preference. The API-server cache TTL equals the
+same interval, so N clients cause one upstream metadata request per cycle.
+
+### What crosses the wire, and what does not
+
+Signalwatch serves **metadata only** — `GET /monitoring/weather` returns
+products, coverage, freshness and provider health. The **imagery is requested
+by the browser directly from NOAA**, exactly as camera media is. Signalwatch
+is not a relay for provider pixels.
+
+### Sandbox limitation
+
+**No `GetMap` request has ever been issued from this workspace and no radar
+tile has been rendered.** Sandbox egress to provider hosts fails at TLS. All
+URL and parameter construction is verified against fixtures derived from the
+`GetCapabilities` document captured in the admission record.
+
+The one thing that *was* exercised locally is the failure path: the built API
+server answered `GET /api/monitoring/weather` with `availability:
+"unavailable"`, `imagery: null` and `"NOAA/NWS radar could not be reached:
+fetch failed."` — correct behaviour for an unreachable provider, and silent
+about the weather.
+
+**The first live provider check is the Windows/networked runtime.**

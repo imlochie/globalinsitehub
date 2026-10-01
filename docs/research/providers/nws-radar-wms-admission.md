@@ -150,6 +150,44 @@ From the service metadata:
 Neither is a defect; both are reasons to quote the specific service rather
 than "NOAA radar" in the UI.
 
+### A third, found during implementation: the bounding box is not an extent
+
+Added 2026-10-01 while building Weather Batch 1.
+
+The capabilities document advertises one geographic bounding box:
+
+```
+west -176.000000   east 150.004790   south 8.995680   north 72.000000
+```
+
+That is the **min/max of five disjoint regions**, not a contiguous extent.
+Guam sits near +145 and the Caribbean near −65, so the envelope wraps the long
+way round and spans **326° of longitude** — it contains Europe, Africa, all of
+Asia, and most of the Atlantic and Indian Oceans.
+
+Why it matters here rather than in the renderer: a `GetMap` for a tile over
+Berlin is a perfectly valid request, and the service will answer it. It
+answers with a **transparent PNG**, because it has no data there. Drawn on a
+map, transparent radar over Berlin is indistinguishable from radar reporting
+**no precipitation** over Berlin — the one claim binding constraint 5 forbids.
+
+So this envelope must **never** be used as a render clip. Signalwatch clips
+instead to one box per region the service names, each strictly inside the
+envelope so the clip only ever narrows NOAA's claim:
+
+| Region | west | south | east | north |
+| --- | --- | --- | --- | --- |
+| Continental United States | −127 | 23 | −64 | 51 |
+| Alaska | −176 | 50 | −128 | 72 |
+| Hawaii | −162 | 17 | −153 | 24 |
+| Caribbean (PR / USVI) | −69 | 16 | −63 | 20 |
+| Guam | 143 | 12 | 150.00479 | 21 |
+
+The boxes are drawn generously around each named region so nothing NOAA
+publishes is hidden. They are a **rendering clip derived from the provider's
+own region list**, not a coverage claim of their own, and they are recorded
+here so the derivation is auditable.
+
 ## 5. Admission lines
 
 | Line | Finding |
@@ -191,3 +229,20 @@ authorised, subject to the constraints recorded above:
 
 This authorises the radar provider only. The field/imagery layer kind it will
 plug into is still the first engineering task of Weather Batch 1.
+
+### Implemented 2026-10-01 — where each constraint lives
+
+| # | Constraint | Where it is enforced |
+| --- | --- | --- |
+| 1 | Unaltered rendering | the browser requests `GetMap` and draws NOAA's own PNG; Signalwatch has no recolour, reclassify or composite step anywhere |
+| 2 | EPSG:3857 | `IMAGERY_CRS` in `weather-sources/nws-radar.ts`; an unsupported CRS skips the surface rather than substituting one |
+| 3 | Frame time distinct from receipt time | `sourceTimestamp` (read from the WMS time dimension) vs `ingestionTimestamp`; both shown in the weather panel |
+| 4 | No faster than 10 min | `REFRESH_INTERVAL_MS`, the API-server cache TTL, and the client query's `refetchInterval` |
+| 5 | Honest coverage | five clip boxes (above) given to Leaflet as per-area `bounds`, so no tile outside them is ever requested; `describeAvailability` states "no source", never "no precipitation" |
+| 6 | Attribution, no implied endorsement | `ATTRIBUTION`, the verbatim `copyrightText`, carried on the Leaflet layer and in the panel |
+
+Architecture: `docs/research/weather-layer-architecture.md`.
+
+**Still no `GetMap` has been issued.** The first live check is the
+Windows/networked runtime; §12.1 of the architecture record lists exactly what
+to verify.

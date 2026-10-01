@@ -275,6 +275,7 @@ export default function SectorsPage({
               eventsLoading={layerData.briefingLoading}
               eventsError={layerData.briefingError}
               observations={layerData.globeObservations}
+              imagery={layerData.imagery}
               selectedObservation={layerData.selectedObservation}
               globeSamples={layerData.globeSamples}
               onSelectObservation={(observation) => {

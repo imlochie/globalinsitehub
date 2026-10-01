@@ -38,6 +38,18 @@ OSIRIS upstream commit referenced by all entries below:
 
 ---
 
+## Built independently — no OSIRIS lineage
+
+Recorded so the absence is deliberate and checkable, not an omission.
+
+| Signalwatch component | Batch | Origin |
+| --- | --- | --- |
+| `artifacts/signalwatch/src/lib/spatial-layers.ts`, the `LayerDefinition.kind` discriminant and its registry validation | Weather Batch 1 | Designed against Signalwatch's own layer registry. OSIRIS has no equivalent: every OSIRIS surface is a record list, so there was nothing to reuse |
+| `artifacts/api-server/src/weather-sources/*` (NWS radar WMS adapter, capabilities reader, product registry) | Weather Batch 1 | Derived from the NWS service's own `GetCapabilities` and ImageServer metadata, captured and quoted in `docs/research/providers/nws-radar-wms-admission.md`. OSIRIS's `api/weather/route.ts` covers CAP **alerts**, already migrated separately into `hazard-sources/nws.ts`; it contains no radar, no WMS and no imagery handling |
+| Weather imagery rendering in `components/map-panel.tsx` | Weather Batch 1 | Leaflet's built-in `L.tileLayer.wms`, already a Signalwatch dependency |
+
+No OSIRIS runtime dependency was introduced.
+
 ## Rejected OSIRIS mechanisms
 
 Recorded so a future agent does not reintroduce them.

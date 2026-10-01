@@ -26,7 +26,8 @@ import type {
   MonitoringCameras,
   MonitoringHazards,
   MonitoringPublicEvents,
-  MonitoringVessels
+  MonitoringVessels,
+  MonitoringWeather
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -547,6 +548,84 @@ export function useGetMonitoringPublicEvents<TData = Awaited<ReturnType<typeof g
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMonitoringPublicEventsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMonitoringWeatherUrl = () => {
+
+
+
+
+  return `/api/monitoring/weather`
+}
+
+/**
+ * Returns the continuous spatial surfaces Signalwatch can render for the weather layer, with provenance, coverage, freshness and provider health. This endpoint returns PRODUCTS, not observations: a radar mosaic is a surface covering millions of square kilometres with no record id and no single coordinate, so it is deliberately not expressed as a point observation. There is no limit or text filter because there is nothing to paginate or search. Signalwatch serves only the metadata; the imagery itself is requested by the browser directly from the provider, exactly as camera media is, and is never relayed through this server. Coverage is REGIONAL and explicitly bounded: outside the declared bounds there is no source, which is never the same claim as "no precipitation".
+ * @summary Describe the weather spatial products available for rendering
+ */
+export const getMonitoringWeather = async ( options?: Parameters<typeof customFetch>[1]): Promise<MonitoringWeather> => {
+
+  return customFetch<MonitoringWeather>(getGetMonitoringWeatherUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMonitoringWeatherQueryKey = () => {
+    return [
+    `/api/monitoring/weather`
+    ] as const;
+    }
+
+
+export const getGetMonitoringWeatherQueryOptions = <TData = Awaited<ReturnType<typeof getMonitoringWeather>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringWeather>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMonitoringWeatherQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMonitoringWeather>>> = ({ signal }) => getMonitoringWeather({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMonitoringWeather>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMonitoringWeatherQueryResult = NonNullable<Awaited<ReturnType<typeof getMonitoringWeather>>>
+export type GetMonitoringWeatherQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Describe the weather spatial products available for rendering
+ */
+
+export function useGetMonitoringWeather<TData = Awaited<ReturnType<typeof getMonitoringWeather>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMonitoringWeather>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMonitoringWeatherQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

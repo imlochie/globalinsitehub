@@ -9,6 +9,11 @@
 import type { BaseObservation } from "@/lib/global-layers";
 import type { GlobalLayerContextValue } from "@/components/global-layer-provider";
 import type { LayerId } from "@/lib/layer-registry";
+import type {
+  RenderableImagery,
+  SpatialBounds,
+  SpatialProduct,
+} from "@/lib/spatial-layers";
 
 export type LayerFetchStatus = {
   /** True while the layer has no usable data yet. */
@@ -40,4 +45,42 @@ export type LayerSourceResult<TObservation extends BaseObservation> = {
 export type LayerSourceContext = {
   enabled: boolean;
   state: GlobalLayerContextValue;
+};
+
+/**
+ * Runtime half of a *spatial* layer.
+ *
+ * Deliberately not a `LayerSourceResult`. `LayerSourceResult` is generic over
+ * `BaseObservation`, which hard-requires a latitude, a longitude and a record
+ * id — none of which a continuous surface has. Keeping the two result types
+ * separate means spatial layers are structurally unable to reach
+ * `combineLayerSources`, the marker sampler or the observation inspector, so
+ * the two kinds cannot corrupt each other by accident rather than by
+ * convention.
+ *
+ * The shared half — `layerId`, `enabled`, `status`, `refetch` — is identical,
+ * so the layer control treats both kinds the same way.
+ */
+export type SpatialLayerSourceResult = {
+  layerId: LayerId;
+  enabled: boolean;
+  kind: "imagery" | "field";
+  /** Raw products, for the panel and the provenance UI. */
+  products: SpatialProduct[];
+  /** Surfaces resolved against the current viewport, for the map. */
+  imagery: RenderableImagery[];
+  status: LayerFetchStatus;
+  refetch: () => void;
+};
+
+export type SpatialLayerSourceContext = {
+  enabled: boolean;
+  /**
+   * Current map extent, used only to decide whether the viewport has left the
+   * product's declared coverage. Null means "not yet known", which never
+   * hides a surface pre-emptively.
+   */
+  viewport: Omit<SpatialBounds, "name"> | null;
+  /** Injectable clock so freshness is testable without faking timers. */
+  now?: Date;
 };

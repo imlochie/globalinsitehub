@@ -22,6 +22,7 @@ import {
   type SectorId,
 } from "@/lib/sectors";
 import { SignalMap } from "@/components/map-panel";
+import type { RenderableImagery } from "@/lib/spatial-layers";
 import type { CameraRecord } from "@workspace/api-client-react";
 import type { BriefingEvent } from "@/lib/monitoring";
 import type {
@@ -62,6 +63,8 @@ type SectorGlobeProps = {
   eventsLoading: boolean;
   eventsError: boolean;
   observations: GlobalObservation[];
+  /** Spatial surfaces, forwarded untouched to the 2D map view. */
+  imagery?: RenderableImagery[];
   selectedObservation: GlobalObservation | null;
   /** Per-layer sampling summaries produced by the layer engine. */
   globeSamples: LayerSampleSummary[];
@@ -141,6 +144,7 @@ export function InteractiveSectorGlobe({
   eventsLoading,
   eventsError,
   observations,
+  imagery,
   selectedObservation,
   globeSamples,
   onSelectObservation,
@@ -246,6 +250,7 @@ export function InteractiveSectorGlobe({
             <SignalMap
               events={events}
               cameras={cameras}
+              imagery={imagery}
               selectedCameraId={
                 selectedIdForLayer(selectedObservation, "cameras") ?? undefined
               }

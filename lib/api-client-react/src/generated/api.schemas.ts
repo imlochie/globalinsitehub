@@ -581,6 +581,164 @@ export interface MonitoringPublicEvents {
   events: PublicEventRecord[];
 }
 
+/**
+ * Derived from the products that answered, never declared statically.
+ */
+export type SpatialCoverageScope = typeof SpatialCoverageScope[keyof typeof SpatialCoverageScope];
+
+
+export const SpatialCoverageScope = {
+  global: 'global',
+  regional: 'regional',
+  local: 'local',
+} as const;
+
+/**
+ * A named geographic extent in EPSG:4326 degrees.
+ */
+export interface SpatialBounds {
+  /** Region name, so a clip box is never an unattributed number. */
+  name: string;
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+export interface SpatialCoverage {
+  /** Derived from the products that answered, never declared statically. */
+  scope: SpatialCoverageScope;
+  regions: string[];
+  /** Plain-language statement of what is and is not observed. Outside the declared coverage there is no source; that is never reported as an absence of weather. */
+  note: string;
+  /** Areas the product actually observes, as disjoint boxes. An empty list means global. A list rather than a single box because a single min/max envelope over disjoint regions over-claims badly: NOAA's radar service spans Guam and the Caribbean, so its published envelope sweeps in Europe, Africa and Asia, where transparent tiles would be indistinguishable from "no precipitation". */
+  areas: SpatialBounds[];
+}
+
+export type SpatialProductKind = typeof SpatialProductKind[keyof typeof SpatialProductKind];
+
+
+export const SpatialProductKind = {
+  imagery: 'imagery',
+  field: 'field',
+} as const;
+
+export type SpatialProductAvailability = typeof SpatialProductAvailability[keyof typeof SpatialProductAvailability];
+
+
+export const SpatialProductAvailability = {
+  covered: 'covered',
+  stale: 'stale',
+  unavailable: 'unavailable',
+  unconfigured: 'unconfigured',
+} as const;
+
+export type SpatialImageryServiceProtocol = typeof SpatialImageryServiceProtocol[keyof typeof SpatialImageryServiceProtocol];
+
+
+export const SpatialImageryServiceProtocol = {
+  wms: 'wms',
+} as const;
+
+/**
+ * How a raster surface is rendered. The browser requests tiles from this endpoint directly; Signalwatch does not proxy provider imagery.
+ */
+export interface SpatialImageryService {
+  protocol: SpatialImageryServiceProtocol;
+  endpoint: string;
+  layer: string;
+  version: string;
+  /** Requested CRS. EPSG:3857 is used deliberately because WMS 1.3.0 reverses axis order for EPSG:4326. */
+  crs: string;
+  format: string;
+  transparent: boolean;
+  /**
+     * Name of the time parameter when the service is time-enabled. Omitting the parameter asks the provider for its most recent frame.
+     * @nullable
+     */
+  timeParameter: string | null;
+  opacity: number;
+}
+
+export type SpatialFieldDescriptorGrid = {
+  width: number;
+  height: number;
+};
+
+export type SpatialFieldDescriptorValueRange = {
+  min: number;
+  max: number;
+} | null;
+
+/**
+ * Gridded numeric field. Declared for the next batch; no field provider is implemented and no GRIB decoding happens anywhere in this codebase.
+ */
+export interface SpatialFieldDescriptor {
+  variable: string;
+  /** Unit as the provider publishes it. Never converted silently. */
+  unit: string;
+  grid: SpatialFieldDescriptorGrid;
+  resolutionDegrees: number;
+  valueRange: SpatialFieldDescriptorValueRange;
+  /**
+     * How the provider encodes "no data". Never confused with zero.
+     * @nullable
+     */
+  missingValue: number | null;
+  /** @nullable */
+  modelId: string | null;
+  /** @nullable */
+  runId: string | null;
+}
+
+/**
+ * A continuous spatial surface. The three timestamps are kept separate on purpose: collapsing them would make a forecast indistinguishable from an observation.
+ */
+export interface SpatialProduct {
+  id: string;
+  layerId: string;
+  kind: SpatialProductKind;
+  providerId: string;
+  providerName: string;
+  productName: string;
+  productDescription: string;
+  attribution: string;
+  sourceUrl: string;
+  licence: string;
+  coverage: SpatialCoverage;
+  /**
+     * When the provider says the content is valid. Null when not published.
+     * @nullable
+     */
+  sourceTimestamp: string | null;
+  /** When Signalwatch retrieved it. Never the source time. */
+  ingestionTimestamp: string;
+  /**
+     * Model valid time. Null for observations such as radar.
+     * @nullable
+     */
+  validTime: string | null;
+  /**
+     * Model run/reference time. Null for observations.
+     * @nullable
+     */
+  runTime: string | null;
+  /** Documented provider cadence. Clients must not poll faster. */
+  refreshIntervalMs: number;
+  staleAfterMs: number;
+  availability: SpatialProductAvailability;
+  message: string;
+  imagery: SpatialImageryService | null;
+  field: SpatialFieldDescriptor | null;
+}
+
+export interface MonitoringWeather {
+  /** When this response was assembled. Never a product's own time. */
+  generatedAt: string;
+  coverage: SpatialCoverage;
+  products: SpatialProduct[];
+}
+
 export type GetMonitoringBriefingParams = {
 /**
  * Optional text filter applied to headlines and events.

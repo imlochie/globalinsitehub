@@ -360,3 +360,83 @@ export const GetMonitoringPublicEventsResponse = zod.object({
 })
 
 
+/**
+ * Returns the continuous spatial surfaces Signalwatch can render for the weather layer, with provenance, coverage, freshness and provider health. This endpoint returns PRODUCTS, not observations: a radar mosaic is a surface covering millions of square kilometres with no record id and no single coordinate, so it is deliberately not expressed as a point observation. There is no limit or text filter because there is nothing to paginate or search. Signalwatch serves only the metadata; the imagery itself is requested by the browser directly from the provider, exactly as camera media is, and is never relayed through this server. Coverage is REGIONAL and explicitly bounded: outside the declared bounds there is no source, which is never the same claim as "no precipitation".
+ * @summary Describe the weather spatial products available for rendering
+ */
+export const GetMonitoringWeatherResponse = zod.object({
+  "generatedAt": zod.coerce.date().describe('When this response was assembled. Never a product\'s own time.'),
+  "coverage": zod.object({
+  "scope": zod.enum(['global', 'regional', 'local']).describe('Derived from the products that answered, never declared statically.'),
+  "regions": zod.array(zod.string()),
+  "note": zod.string().describe('Plain-language statement of what is and is not observed. Outside the declared coverage there is no source; that is never reported as an absence of weather.'),
+  "areas": zod.array(zod.object({
+  "name": zod.string().describe('Region name, so a clip box is never an unattributed number.'),
+  "west": zod.number(),
+  "south": zod.number(),
+  "east": zod.number(),
+  "north": zod.number()
+}).describe('A named geographic extent in EPSG:4326 degrees.')).describe('Areas the product actually observes, as disjoint boxes. An empty list means global. A list rather than a single box because a single min/max envelope over disjoint regions over-claims badly: NOAA\'s radar service spans Guam and the Caribbean, so its published envelope sweeps in Europe, Africa and Asia, where transparent tiles would be indistinguishable from "no precipitation".')
+}),
+  "products": zod.array(zod.object({
+  "id": zod.string(),
+  "layerId": zod.string(),
+  "kind": zod.enum(['imagery', 'field']),
+  "providerId": zod.string(),
+  "providerName": zod.string(),
+  "productName": zod.string(),
+  "productDescription": zod.string(),
+  "attribution": zod.string(),
+  "sourceUrl": zod.string().url(),
+  "licence": zod.string(),
+  "coverage": zod.object({
+  "scope": zod.enum(['global', 'regional', 'local']).describe('Derived from the products that answered, never declared statically.'),
+  "regions": zod.array(zod.string()),
+  "note": zod.string().describe('Plain-language statement of what is and is not observed. Outside the declared coverage there is no source; that is never reported as an absence of weather.'),
+  "areas": zod.array(zod.object({
+  "name": zod.string().describe('Region name, so a clip box is never an unattributed number.'),
+  "west": zod.number(),
+  "south": zod.number(),
+  "east": zod.number(),
+  "north": zod.number()
+}).describe('A named geographic extent in EPSG:4326 degrees.')).describe('Areas the product actually observes, as disjoint boxes. An empty list means global. A list rather than a single box because a single min/max envelope over disjoint regions over-claims badly: NOAA\'s radar service spans Guam and the Caribbean, so its published envelope sweeps in Europe, Africa and Asia, where transparent tiles would be indistinguishable from "no precipitation".')
+}),
+  "sourceTimestamp": zod.coerce.date().nullable().describe('When the provider says the content is valid. Null when not published.'),
+  "ingestionTimestamp": zod.coerce.date().describe('When Signalwatch retrieved it. Never the source time.'),
+  "validTime": zod.coerce.date().nullable().describe('Model valid time. Null for observations such as radar.'),
+  "runTime": zod.coerce.date().nullable().describe('Model run/reference time. Null for observations.'),
+  "refreshIntervalMs": zod.number().int().describe('Documented provider cadence. Clients must not poll faster.'),
+  "staleAfterMs": zod.number().int(),
+  "availability": zod.enum(['covered', 'stale', 'unavailable', 'unconfigured']),
+  "message": zod.string(),
+  "imagery": zod.union([zod.object({
+  "protocol": zod.enum(['wms']),
+  "endpoint": zod.string().url(),
+  "layer": zod.string(),
+  "version": zod.string(),
+  "crs": zod.string().describe('Requested CRS. EPSG:3857 is used deliberately because WMS 1.3.0 reverses axis order for EPSG:4326.'),
+  "format": zod.string(),
+  "transparent": zod.boolean(),
+  "timeParameter": zod.string().nullable().describe('Name of the time parameter when the service is time-enabled. Omitting the parameter asks the provider for its most recent frame.'),
+  "opacity": zod.number()
+}).describe('How a raster surface is rendered. The browser requests tiles from this endpoint directly; Signalwatch does not proxy provider imagery.'),zod.null()]),
+  "field": zod.union([zod.object({
+  "variable": zod.string(),
+  "unit": zod.string().describe('Unit as the provider publishes it. Never converted silently.'),
+  "grid": zod.object({
+  "width": zod.number().int(),
+  "height": zod.number().int()
+}),
+  "resolutionDegrees": zod.number(),
+  "valueRange": zod.union([zod.object({
+  "min": zod.number(),
+  "max": zod.number()
+}),zod.null()]),
+  "missingValue": zod.number().nullable().describe('How the provider encodes "no data". Never confused with zero.'),
+  "modelId": zod.string().nullable(),
+  "runId": zod.string().nullable()
+}).describe('Gridded numeric field. Declared for the next batch; no field provider is implemented and no GRIB decoding happens anywhere in this codebase.'),zod.null()])
+}).describe('A continuous spatial surface. The three timestamps are kept separate on purpose: collapsing them would make a forecast indistinguishable from an observation.'))
+})
+
+

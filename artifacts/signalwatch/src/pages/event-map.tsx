@@ -176,6 +176,7 @@ export default function EventMapPage() {
             <SignalMap
               events={events}
               cameras={layerData.cameraCatalogue.cameras}
+              imagery={layerData.imagery}
               selectedCameraId={selectedCameraId ?? undefined}
               selectedEventId={selectedEventId ?? undefined}
               onSelectCamera={selectCamera}

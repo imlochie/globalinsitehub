@@ -228,6 +228,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MonitoringPublicEvents"
+  /monitoring/weather:
+    get:
+      operationId: getMonitoringWeather
+      tags: [monitoring]
+      summary: Describe the weather spatial products available for rendering
+      description: >-
+        Returns the continuous spatial surfaces Signalwatch can render for the weather
+        layer, with provenance, coverage, freshness and provider health. This endpoint
+        returns PRODUCTS, not observations: a radar mosaic is a surface covering
+        millions of square kilometres with no record id and no single coordinate, so it
+        is deliberately not expressed as a point observation. There is no limit or text
+        filter because there is nothing to paginate or search. Signalwatch serves only
+        the metadata; the imagery itself is requested by the browser directly from the
+        provider, exactly as camera media is, and is never relayed through this server.
+        Coverage is REGIONAL and explicitly bounded: outside the declared bounds there
+        is no source, which is never the same claim as "no precipitation".
+      responses:
+        "200":
+          description: Weather spatial products with coverage, freshness and health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringWeather"
 components:
   schemas:
     HealthStatus:
@@ -1142,3 +1165,254 @@ components:
         message:
           type: string
 
+    MonitoringWeather:
+      type: object
+      required:
+        - generatedAt
+        - coverage
+        - products
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+          description: When this response was assembled. Never a product's own time.
+        coverage:
+          $ref: "#/components/schemas/SpatialCoverage"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpatialProduct"
+    SpatialBounds:
+      type: object
+      description: A named geographic extent in EPSG:4326 degrees.
+      required:
+        - name
+        - west
+        - south
+        - east
+        - north
+      properties:
+        name:
+          type: string
+          description: Region name, so a clip box is never an unattributed number.
+        west:
+          type: number
+        south:
+          type: number
+        east:
+          type: number
+        north:
+          type: number
+    SpatialCoverage:
+      type: object
+      required:
+        - scope
+        - regions
+        - note
+        - areas
+      properties:
+        scope:
+          type: string
+          enum: [global, regional, local]
+          description: Derived from the products that answered, never declared statically.
+        regions:
+          type: array
+          items:
+            type: string
+        note:
+          type: string
+          description: >-
+            Plain-language statement of what is and is not observed. Outside the
+            declared coverage there is no source; that is never reported as an
+            absence of weather.
+        areas:
+          type: array
+          items:
+            $ref: "#/components/schemas/SpatialBounds"
+          description: >-
+            Areas the product actually observes, as disjoint boxes. An empty list
+            means global. A list rather than a single box because a single
+            min/max envelope over disjoint regions over-claims badly: NOAA's radar
+            service spans Guam and the Caribbean, so its published envelope sweeps
+            in Europe, Africa and Asia, where transparent tiles would be
+            indistinguishable from "no precipitation".
+    SpatialImageryService:
+      type: object
+      description: >-
+        How a raster surface is rendered. The browser requests tiles from this
+        endpoint directly; Signalwatch does not proxy provider imagery.
+      required:
+        - protocol
+        - endpoint
+        - layer
+        - version
+        - crs
+        - format
+        - transparent
+        - timeParameter
+        - opacity
+      properties:
+        protocol:
+          type: string
+          enum: [wms]
+        endpoint:
+          type: string
+          format: uri
+        layer:
+          type: string
+        version:
+          type: string
+        crs:
+          type: string
+          description: >-
+            Requested CRS. EPSG:3857 is used deliberately because WMS 1.3.0
+            reverses axis order for EPSG:4326.
+        format:
+          type: string
+        transparent:
+          type: boolean
+        timeParameter:
+          type: ["string", "null"]
+          description: >-
+            Name of the time parameter when the service is time-enabled. Omitting
+            the parameter asks the provider for its most recent frame.
+        opacity:
+          type: number
+    SpatialFieldDescriptor:
+      type: object
+      description: >-
+        Gridded numeric field. Declared for the next batch; no field provider is
+        implemented and no GRIB decoding happens anywhere in this codebase.
+      required:
+        - variable
+        - unit
+        - grid
+        - resolutionDegrees
+        - valueRange
+        - missingValue
+        - modelId
+        - runId
+      properties:
+        variable:
+          type: string
+        unit:
+          type: string
+          description: Unit as the provider publishes it. Never converted silently.
+        grid:
+          type: object
+          required:
+            - width
+            - height
+          properties:
+            width:
+              type: integer
+            height:
+              type: integer
+        resolutionDegrees:
+          type: number
+        valueRange:
+          oneOf:
+            - type: object
+              required:
+                - min
+                - max
+              properties:
+                min:
+                  type: number
+                max:
+                  type: number
+            - type: "null"
+        missingValue:
+          type: ["number", "null"]
+          description: How the provider encodes "no data". Never confused with zero.
+        modelId:
+          type: ["string", "null"]
+        runId:
+          type: ["string", "null"]
+    SpatialProduct:
+      type: object
+      description: >-
+        A continuous spatial surface. The three timestamps are kept separate on
+        purpose: collapsing them would make a forecast indistinguishable from an
+        observation.
+      required:
+        - id
+        - layerId
+        - kind
+        - providerId
+        - providerName
+        - productName
+        - productDescription
+        - attribution
+        - sourceUrl
+        - licence
+        - coverage
+        - sourceTimestamp
+        - ingestionTimestamp
+        - validTime
+        - runTime
+        - refreshIntervalMs
+        - staleAfterMs
+        - availability
+        - message
+        - imagery
+        - field
+      properties:
+        id:
+          type: string
+        layerId:
+          type: string
+        kind:
+          type: string
+          enum: [imagery, field]
+        providerId:
+          type: string
+        providerName:
+          type: string
+        productName:
+          type: string
+        productDescription:
+          type: string
+        attribution:
+          type: string
+        sourceUrl:
+          type: string
+          format: uri
+        licence:
+          type: string
+        coverage:
+          $ref: "#/components/schemas/SpatialCoverage"
+        sourceTimestamp:
+          type: ["string", "null"]
+          format: date-time
+          description: When the provider says the content is valid. Null when not published.
+        ingestionTimestamp:
+          type: string
+          format: date-time
+          description: When Signalwatch retrieved it. Never the source time.
+        validTime:
+          type: ["string", "null"]
+          format: date-time
+          description: Model valid time. Null for observations such as radar.
+        runTime:
+          type: ["string", "null"]
+          format: date-time
+          description: Model run/reference time. Null for observations.
+        refreshIntervalMs:
+          type: integer
+          description: Documented provider cadence. Clients must not poll faster.
+        staleAfterMs:
+          type: integer
+        availability:
+          type: string
+          enum: [covered, stale, unavailable, unconfigured]
+        message:
+          type: string
+        imagery:
+          oneOf:
+            - $ref: "#/components/schemas/SpatialImageryService"
+            - type: "null"
+        field:
+          oneOf:
+            - $ref: "#/components/schemas/SpatialFieldDescriptor"
+            - type: "null"

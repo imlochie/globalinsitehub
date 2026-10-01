@@ -10,12 +10,14 @@ import { cameraLayerPanel } from './camera-layer-panel';
 import { maritimeLayerPanel } from './maritime-layer-panel';
 import { naturalHazardLayerPanel } from './natural-hazard-layer-panel';
 import { publicEventLayerPanel } from './public-event-layer-panel';
+import { weatherLayerPanel } from './weather-layer-panel';
 import type { LayerPanelModel } from './types';
 
 export { cameraLayerPanel } from './camera-layer-panel';
 export { maritimeLayerPanel } from './maritime-layer-panel';
 export { naturalHazardLayerPanel } from './natural-hazard-layer-panel';
 export { publicEventLayerPanel } from './public-event-layer-panel';
+export { weatherLayerPanel } from './weather-layer-panel';
 export type { LayerPanelModel, LayerPanelMetric, StatusTone } from './types';
 
 type LayerData = ReturnType<typeof useGlobalLayerData>;
@@ -113,6 +115,25 @@ export function buildLayerPanels(layerData: LayerData): LayerPanelModel[] {
         hasError: layerData.hazardFeed.hasError,
         isUnavailable: layerData.hazardFeed.isUnavailable,
         isTruncated: layerData.hazardFeed.isTruncated,
+      }),
+    );
+  }
+
+  // Spatial layers register exactly like observation layers: the shared
+  // control is kind-agnostic, because everything it renders (title, toggle,
+  // status, metrics, coverage note) is common to both. Only the panel body
+  // differs, which is the whole point of the view-model indirection.
+  if (registry.has('weather')) {
+    panels.push(
+      weatherLayerPanel({
+        definition: registry.require('weather'),
+        enabled: layerData.isLayerEnabled('weather'),
+        onEnabledChange: (enabled) => layerData.setLayerEnabled('weather', enabled),
+        products: layerData.weatherSurfaces.products,
+        isLoading: layerData.weatherSurfaces.isLoading,
+        isFetching: layerData.weatherSurfaces.isFetching,
+        hasError: layerData.weatherSurfaces.hasError,
+        isUnavailable: layerData.weatherSurfaces.isUnavailable,
       }),
     );
   }
