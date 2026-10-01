@@ -179,3 +179,75 @@ test("no provider fabricates a media URL", async () => {
     );
   }
 });
+
+/* -------------------------------------------------------------------------- */
+/* Compatibility and route contract                                           */
+/* -------------------------------------------------------------------------- */
+
+test("'unavailable' is never synthesised from absent provider data", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const classifier = await readFile(
+    new URL("../src/camera-providers/view-capability.ts", import.meta.url),
+    "utf8",
+  );
+  const code = classifier
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  // No provider publishes a per-camera out-of-service signal, so claiming one
+  // would be inventing provider state. The UI still renders it if it appears.
+  assert.doesNotMatch(code, /viewCapability:\s*"unavailable"/);
+
+  for (const file of [
+    "qldtraffic-cameras.ts",
+    "queensland-tmr.ts",
+    "transport-for-nsw.ts",
+    "opentrafficcammap.ts",
+  ]) {
+    const source = await readFile(
+      new URL(`../src/camera-providers/${file}`, import.meta.url),
+      "utf8",
+    );
+    const providerCode = source
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    assert.doesNotMatch(
+      providerCode,
+      /viewCapability:\s*"unavailable"/,
+      `${file} fabricates an unavailable state`,
+    );
+  }
+});
+
+test("every classification result is a valid capability", () => {
+  const valid = new Set([
+    "catalogue-only",
+    "live-image",
+    "video-stream",
+    "external-viewer",
+    "unavailable",
+  ]);
+  const cases = [
+    { documentedAs: "unknown" as const, url: null },
+    { documentedAs: "unknown" as const, url: "https://a.test/x" },
+    { documentedAs: "current-image" as const, url: "https://a.test/x.jpg" },
+    { documentedAs: "current-image" as const, url: "bad" },
+    { documentedAs: "media" as const, url: "https://a.test/s.m3u8" },
+    { documentedAs: "media" as const, url: "rtsp://a.test/s" },
+    { documentedAs: "viewing-page" as const, url: "https://a.test/page" },
+    { documentedAs: "viewing-page" as const, url: null },
+  ];
+  for (const input of cases) {
+    const result = classifyViewCapability(input);
+    assert.ok(valid.has(result.viewCapability), JSON.stringify(input));
+    // A capability without media must never carry a media URL, and vice versa.
+    if (result.viewCapability === "catalogue-only") {
+      assert.equal(result.mediaUrl, null);
+    }
+    if (result.mediaUrl !== null) {
+      assert.ok(
+        result.viewCapability === "live-image" ||
+          result.viewCapability === "video-stream",
+      );
+    }
+  }
+});

@@ -121,3 +121,72 @@ test("provider attribution survives into the inspector", () => {
   assert.match(markup, /Department of Transport and Main Roads/);
   assert.match(markup, /not a continuous stream/);
 });
+
+test("an unavailable camera says so and offers no play action", () => {
+  const markup = render(
+    camera({
+      viewCapability: "unavailable",
+      mediaUrl: null,
+      mediaType: null,
+    } as Partial<CameraRecord>),
+  );
+  assert.match(markup, /text-camera-catalogue-only/);
+  assert.match(markup, /Unavailable/);
+  assert.doesNotMatch(markup, /link-camera-view-image/);
+  assert.doesNotMatch(markup, /link-camera-watch-live/);
+  assert.doesNotMatch(markup, /camera-live-image/);
+});
+
+test("every capability renders exactly one primary action", () => {
+  const actions = [
+    "link-camera-view-image",
+    "link-camera-watch-live",
+    "link-camera-open-viewer",
+    "text-camera-catalogue-only",
+  ];
+  const cases: Array<[string, Partial<CameraRecord>]> = [
+    ["live-image", { viewCapability: "live-image" } as Partial<CameraRecord>],
+    [
+      "video-stream",
+      {
+        viewCapability: "video-stream",
+        mediaUrl: "https://example.test/s.m3u8",
+        mediaType: "hls",
+      } as Partial<CameraRecord>,
+    ],
+    [
+      "external-viewer",
+      {
+        viewCapability: "external-viewer",
+        mediaUrl: null,
+        mediaType: "webpage",
+      } as Partial<CameraRecord>,
+    ],
+    [
+      "catalogue-only",
+      {
+        viewCapability: "catalogue-only",
+        mediaUrl: null,
+        mediaType: null,
+      } as Partial<CameraRecord>,
+    ],
+    [
+      "unavailable",
+      {
+        viewCapability: "unavailable",
+        mediaUrl: null,
+        mediaType: null,
+      } as Partial<CameraRecord>,
+    ],
+  ];
+
+  for (const [label, overrides] of cases) {
+    const markup = render(camera(overrides));
+    const present = actions.filter((action) => markup.includes(action));
+    assert.equal(
+      present.length,
+      1,
+      `${label} rendered ${present.length} primary actions: ${present.join(", ")}`,
+    );
+  }
+});

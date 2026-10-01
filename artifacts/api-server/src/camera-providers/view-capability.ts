@@ -20,6 +20,12 @@ import type { CameraRecord } from "@workspace/api-zod";
  *
  * Anything `unknown` stays `catalogue-only`. That is deliberately the default:
  * an unviewable camera must never present a play affordance.
+ *
+ * Note on `unavailable`: no registered provider currently publishes a
+ * per-camera out-of-service signal, so nothing emits it today. It is kept in
+ * the model because the UI must render that state honestly if a provider ever
+ * does publish one — but it is never synthesised here, since guessing that a
+ * camera is "temporarily unavailable" would be fabricating provider state.
  */
 export type DocumentedSource =
   | "current-image"
