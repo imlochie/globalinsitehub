@@ -128,8 +128,12 @@ pub fn run() {
             // The frontend reads this before mounting and routes every request
             // to the bundled API. Build-time configuration cannot express a
             // port chosen at runtime, so it is injected here.
+            // __SIGNALWATCH_DESKTOP__ lets the frontend tell a packaged shell
+            // apart from a browser. A release Tauri build has no devtools, so
+            // the error boundary uses it to render crash detail on screen
+            // instead of hiding it as it does for web production builds.
             let init = format!(
-                "window.__SIGNALWATCH_API_BASE__ = {};",
+                "window.__SIGNALWATCH_API_BASE__ = {}; window.__SIGNALWATCH_DESKTOP__ = true;",
                 serde_json::to_string(&api_base).unwrap_or_else(|_| "null".into())
             );
 

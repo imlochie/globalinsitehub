@@ -19,17 +19,30 @@ import './index.css';
  *
  * Leaving both unset preserves existing browser behaviour exactly.
  */
-declare global {
-  interface Window {
-    __SIGNALWATCH_API_BASE__?: string;
-  }
-}
-
 const runtimeApiBaseUrl =
   typeof window !== 'undefined' ? window.__SIGNALWATCH_API_BASE__?.trim() : undefined;
 const apiBaseUrl = runtimeApiBaseUrl || import.meta.env.VITE_API_BASE_URL?.trim();
 if (apiBaseUrl) {
   setBaseUrl(apiBaseUrl);
+}
+
+/**
+ * Startup diagnostics.
+ *
+ * A packaged desktop build has no devtools, so console output alone is
+ * invisible. These values are stashed for the error boundary to render on
+ * screen when running inside the desktop shell. They are deliberately limited
+ * to routing/runtime facts — no credentials or provider secrets.
+ */
+if (typeof window !== 'undefined') {
+  window.__SIGNALWATCH_DIAG__ = {
+    runtimeApiBaseUrl: runtimeApiBaseUrl ?? '(not injected)',
+    apiBaseUrl: apiBaseUrl ?? '(relative, same-origin)',
+    href: window.location.href,
+    baseUrl: import.meta.env.BASE_URL,
+    desktop: String(window.__SIGNALWATCH_DESKTOP__ === true),
+  };
+  console.info('signalwatch startup', window.__SIGNALWATCH_DIAG__);
 }
 
 createRoot(document.getElementById('root')!, {

@@ -35,7 +35,23 @@ function toError(value: unknown): Error {
   }
 }
 
+/**
+ * Error detail is shown in development and inside the packaged desktop shell.
+ *
+ * The desktop build has no devtools, so without this a crash is a blank
+ * "Something went wrong" with no way to diagnose it. Ordinary production
+ * browser/PWA builds are unchanged and still hide internals, because messages
+ * can carry API responses.
+ */
+function showsErrorDetail(): boolean {
+  if (import.meta.env.DEV) return true;
+  return typeof window !== 'undefined' && window.__SIGNALWATCH_DESKTOP__ === true;
+}
+
 function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
+  const detailed = showsErrorDetail();
+  const diagnostics =
+    typeof window !== 'undefined' ? window.__SIGNALWATCH_DIAG__ : undefined;
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 p-6">
       <div className="max-w-lg w-full text-center">
@@ -46,10 +62,23 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
           This part of the app hit an error. The rest of the app is still
           running.
         </p>
-        {/* Dev only: messages can carry API responses and other internals. */}
-        {import.meta.env.DEV ? (
-          <pre className="mt-4 overflow-x-auto rounded bg-gray-100 p-3 text-left text-xs text-gray-800">
+        {detailed ? (
+          <pre
+            className="mt-4 max-h-64 overflow-auto rounded bg-gray-100 p-3 text-left text-xs text-gray-800"
+            data-testid="text-error-detail"
+          >
             {error.message || String(error)}
+            {error.stack ? `\n\n${error.stack}` : ''}
+          </pre>
+        ) : null}
+        {detailed && diagnostics ? (
+          <pre
+            className="mt-2 overflow-auto rounded bg-gray-100 p-3 text-left text-xs text-gray-800"
+            data-testid="text-error-diagnostics"
+          >
+            {Object.entries(diagnostics)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join('\n')}
           </pre>
         ) : null}
         <button
