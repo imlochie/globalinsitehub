@@ -6,6 +6,8 @@ its README.
 
 - Repository: `https://github.com/simplifaisoul/osiris` (MIT, © 2026 simplifaisoul)
 - Audited at: shallow clone of `master`, 958 files, 17 MB
+- Revised after a second pass that read `cctv/route.ts` itself, not only the
+  adapter files — see §0(d) and §2e
 - Signalwatch baseline: `bbf9d79`
 - Recorded: 2026-09-30
 
@@ -50,12 +52,35 @@ observation layers — that is precisely the "no fake markers" rule.
 evaluated and **excluded** AISStream/AISHub by explicit product decision. This
 audit does not reopen that.
 
+**(d) OSIRIS fetches many providers through forged request headers.**
+`src/lib/stealthFetch.ts` rotates fake browser User-Agents and calls
+`generateResidentialIP()` to fabricate a residential-looking address, injected
+as `X-Forwarded-For` and `X-Real-IP`. Its own docstring calls these "spoofed
+headers" and says they "distribute API requests" — i.e. evade per-IP rate
+limits by misrepresenting the client.
+
+This is a **hard reject**, both as a technique and as evidence:
+
+- Adopting it would breach the standing boundary against circumventing
+  provider restrictions and defeating access controls.
+- More subtly, it **taints provenance**. If a provider only yields data to a
+  disguised client, OSIRIS's success with that provider is not evidence that
+  automated access is permitted. Any source reached via `stealthFetch` must be
+  re-verified with an honest, self-identifying request before adoption, and
+  must be assumed non-consenting until it is.
+
+TfL, WSDOT and Caltrans are all fetched this way (§2e). That does not
+disqualify them — they are genuine open-data programmes and will likely serve
+an honest client — but it does mean OSIRIS is not the evidence.
+
 ---
 
 ## 1. OSIRIS inventory (derived from the source tree)
 
 71 API route groups under `src/app/api/**`, 88 modules under `src/lib/**`,
-47 CCTV adapter files.
+47 CCTV adapter files, **plus three providers implemented inline in
+`cctv/route.ts` with no adapter file of their own** (§2e). Total distinct
+camera providers: ~43 wired into the route (40 imported adapters + 3 inline).
 
 | Domain | OSIRIS route | Upstream host(s) observed in source |
 | --- | --- | --- |
@@ -143,6 +168,54 @@ QLDTraffic and TfNSW do today.
 
 ---
 
+### 2e. Providers the README names but no adapter file implements
+
+The README headlines "TfL, WSDOT, Caltrans, ODOT, MDOT". No `tfl.ts`,
+`wsdot.ts` or `caltrans.ts` exists. They are implemented **inline in
+`cctv/route.ts`**, which is why an adapter-file listing misses them. ODOT and
+MDOT are present but named by state (`oregon.ts`, `michigan.ts`).
+
+Lesson for this audit: the README both over- and under-describes the tree.
+Neither direction can be trusted.
+
+The three inline providers, with endpoints read from `route.ts`:
+
+| Provider | Endpoint | Image URL source | Notes |
+| --- | --- | --- | --- |
+| TfL JamCams | `api.tfl.gov.uk/Place/Type/JamCam` | image property, else `s3-eu-west-1.amazonaws.com/jamcams.tfl.gov.uk/<id>.jpg` | TfL Unified API; open-data programme, free key for higher limits |
+| WSDOT | `data.wsdot.wa.gov/log/public/cameras.json` | `cam.ImageURL` | Washington State DOT public camera log |
+| Caltrans | `caltrans-gis.dot.ca.gov/arcgis/.../CCTV/FeatureServer/0/query` | ArcGIS feature attributes | California DOT ArcGIS service |
+
+All three are fetched through `stealthFetch` (§0(d)), so their accessibility
+is unverified under honest conditions. All three are **RESEARCH — priority**:
+they are large, genuine government camera programmes in regions Signalwatch
+has no coverage of, and TfL in particular publishes a documented image URL
+pattern, which is the shape that earns `live-image`.
+
+### 2f. Per-provider detail, candidate set only
+
+Phase 2 asks for ~20 fields per adapter. Recording them for all 43 providers
+would be speculation: OSIRIS's code reveals endpoint, ID scheme and image
+handling, but **not** licence, rate limits, refresh cadence or failure modes —
+those come from provider documentation, which has not been read for these
+sources yet. Recording what is actually known avoids inventing a tidy table.
+
+| Provider | Country | Operator | Endpoint | ID scheme | Image/stream handling | Known from source | Still unknown |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Digitraffic weathercams | FI | Fintraffic | `weathercam.digitraffic.fi`, `tie.digitraffic.fi` | station/preset id | still images | **licence CC BY 4.0, already verified for maritime** | refresh cadence, camera count |
+| TfL JamCams | UK | Transport for London | `api.tfl.gov.uk/Place/Type/JamCam` | `tfl-<id>` | documented JPEG URL pattern | endpoint, ID scheme, image URL | licence terms, key policy, refresh |
+| WSDOT | US-WA | Washington State DOT | `data.wsdot.wa.gov/log/public/cameras.json` | `wsdot-<CameraID>` | `ImageURL` field | endpoint, ID scheme | licence, rate limits |
+| Caltrans | US-CA | California DOT | `caltrans-gis.dot.ca.gov` ArcGIS FeatureServer | ArcGIS OBJECTID | feature attributes | endpoint | licence, image semantics |
+| Hong Kong | HK | Transport Dept | `data.gov.hk`, `tdcctv.data.one.gov.hk` | gov dataset id | still images | endpoint | licence, refresh |
+| Rijkswaterstaat | NL | Rijkswaterstaat | `api.rwsverkeersinfo.nl` | provider id | — | endpoint | licence, capability |
+| NZTA | NZ | Waka Kotahi | `trafficnz.info` | provider id | still images | endpoint | licence |
+| Taiwan THB | TW | THB | `thbapp.thb.gov.tw` | provider id | — | endpoint | licence, capability |
+| Iceland | IS | Vegagerðin | `vegagerdin.is` | provider id | still images | endpoint | licence |
+| Lithuania | LT | Lietuvos automobilių keliai | `eismoinfo.lt` | provider id | still images | endpoint | licence |
+
+Every row above is `catalogue-only` until its provider documentation is read.
+That is the QLDTraffic rule applied consistently: coverage is not capability.
+
 ## 3. Gap analysis against the Signalwatch layer registry
 
 | Signalwatch layer | Status today | What OSIRIS could add |
@@ -174,6 +247,9 @@ QLDTraffic and TfNSW do today.
 | OpenAQ | air quality | yes | key on v3 | **RESEARCH** | Verify current key policy |
 | IODA (Georgia Tech) | connectivity | yes | none | **RESEARCH** | Academic source; confirm acceptable use |
 | OpenSanctions | sanctions | yes | none | **DEFER** | Licence fine (CC BY 4.0); no Signalwatch layer fits yet |
+| TfL JamCams | cameras | yes | free key for higher limits | **RESEARCH — priority** | Large UK coverage, documented JPEG URL pattern; reached via stealthFetch in OSIRIS so accessibility unverified |
+| WSDOT | cameras | yes | none observed | **RESEARCH — priority** | ~500 cameras, `ImageURL` field; same stealthFetch caveat |
+| Caltrans | cameras | yes | none observed | **RESEARCH** | ArcGIS FeatureServer; same stealthFetch caveat |
 | HK / Rijkswaterstaat / NZTA / Iceland / Lithuania / Taiwan cameras | cameras | yes | varies | **RESEARCH** | Per-provider licence + capability check |
 | US 511 systems | cameras | yes | varies | **RESEARCH** | Vendor terms, not open-data licences |
 | SkylineWebcams, YouTube, streamlock hosts | cameras | n/a | n/a | **EXCLUDE** | Commercial/UGC terms; no redistribution right |
@@ -182,6 +258,7 @@ QLDTraffic and TfNSW do today.
 | Static ports / conflict zones | — | — | — | **EXCLUDE** | Static tables, not observations |
 | CoinGecko, Yahoo Finance, Etherscan, Helius | markets/crypto | mixed | keys | **EXCLUDE** | Outside the product; several are paid-tiered |
 | Scanner, sweep, Shodan, fingerprint | active recon | — | — | **EXCLUDE** | §6 |
+| `stealthFetch` header spoofing | technique | — | — | **EXCLUDE** | Forged User-Agent and X-Forwarded-For; evades rate limits and misrepresents the client |
 
 ---
 
@@ -196,8 +273,14 @@ domain list.
   Aircraft layer moves from `planned` to implementable. This is the single
   biggest capability gain available and it needs no new architecture.
 - **Batch B — Camera expansion, government sources only.** Digitraffic
-  weathercams first (licence already cleared), then HK, Rijkswaterstaat, NZTA.
-  Each as its own provider adapter with `documentedAs` from its own contract.
+  weathercams first (licence already cleared), then TfL and WSDOT, then HK,
+  Rijkswaterstaat, NZTA. Each as its own provider adapter with `documentedAs`
+  from its own contract.
+
+  **Entry condition for every provider OSIRIS reached via `stealthFetch`:**
+  confirm it serves an honest, self-identifying request before any adapter is
+  written. If a provider only responds to a disguised client, it is an
+  EXCLUDE, not an engineering problem to solve.
 - **Batch C — Natural hazards expansion.** NASA FIRMS active fire hotspots,
   which materially extends a layer that currently depends on EONET's curated
   event list.
@@ -246,6 +329,19 @@ Small, genuinely useful patterns observed in `src/lib`:
 None of these require importing OSIRIS code; they are ideas, and Signalwatch's
 own architecture already has the right seams for them.
 
+### Explicitly rejected techniques
+
+- **`stealthFetch` header spoofing** (§0(d)) — rotating fake User-Agents and
+  forging `X-Forwarded-For` / `X-Real-IP`. Rejected on the safety boundary,
+  and it destroys the provenance guarantee Signalwatch exists to provide.
+  Signalwatch already does the opposite: the Digitraffic adapter sends an
+  honest identifying `Digitraffic-User` header, which is what a provider
+  asking to be identified should receive.
+- **YouTube / live-page stream resolution** — extracting media URLs out of
+  pages whose terms forbid it. `external-viewer` is the honest answer.
+- **Proxying media through an owned host** — both a recurring cost and a
+  provenance break.
+
 ---
 
 ## 8. Unresolved
@@ -258,3 +354,10 @@ own architecture already has the right seams for them.
 - Whether any camera provider in §2a documents a current-image URL to the same
   standard QLDTraffic does. **Until that is checked per provider, none of them
   can be classified above `catalogue-only`.**
+- Whether TfL, WSDOT and Caltrans serve an honest self-identifying client, and
+  their licence terms. OSIRIS reaches all three through spoofed headers, so
+  its working integration proves nothing about permitted access.
+- Camera counts: OSIRIS's README claims "17,000+ cameras" in aggregate. No
+  per-provider count was derivable from the source, and the figure includes
+  providers this audit excludes, so it should not be carried forward as a
+  coverage expectation.
