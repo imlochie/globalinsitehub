@@ -469,15 +469,15 @@ Two standing constraints that must not be weakened:
 | 1 | ~~Does DPIRD publish any reflectivity **image** product?~~ | **ANSWERED 2 Oct 2026: NO.** The Radar API's entire surface is six endpoints, all metadata or numeric rainfall. No image, tile, raster, WMS or reflectivity endpoint exists. See §O. |
 | 2 | DPIRD rate limits | Determines cache TTL and whether per-user keys are even workable at scale |
 | 3 | ~~Are DPIRD station observations **observations** or a spatial product?~~ | **ANSWERED 2 Oct 2026: observations.** All ~26 Weather API endpoints are station-keyed; no grid, bbox, tile or envelope exists anywhere in the surface. See §O. |
-| 4 | Layer-kind decision (§D.4) — separate layers or multi-kind layer? | Shapes the registry, the panels and the capability declarations |
+| 4 | ~~Layer-kind decision (§D.4)~~ | **RATIFIED 2 Oct 2026: strict structural layers.** See §P.1. |
 | 5 | Is Signalwatch definitively non-commercial? | Open-Meteo free tier and BOM text products both depend on it |
-| 6 | How does a desktop user actually enter a credential? | No settings surface exists; env var is not a product answer |
+| 6 | ~~How does a desktop user actually enter a credential?~~ | **RATIFIED 2 Oct 2026: desktop Settings + OS credential storage.** See §P.2. |
 | 7 | SILO fair-use numeric limits | Unknown; affects any future historical capability |
 | 8 | Has BOM open-data delivery resumed? | Determines whether ACCESS-G is available at all |
 
-Questions 1 and 3 were answered on 2 October 2026 (§O). **Questions 4 and 6
-remain blocking**, and both are internal design decisions requiring
-ratification rather than research. A new question 9 was opened by the same
+Questions 1 and 3 were answered on 2 October 2026 (§O); questions 4 and 6
+were ratified the same day (§P). **No blocking question remains open for
+DPIRD station observations.** Question 9 still blocks DPIRD rainfall. A new question 9 was opened by the same
 inspection: the Radar API's terms-of-service link is dead, so the licence
 basis recorded for DPIRD rainfall is weaker than C4 assumed.
 
@@ -712,3 +712,95 @@ finer taxonomy documentary rather than per-provider.
 specs. They may be present in the machine-readable `swagger.yaml` at each
 spec's `./swagger.yaml`, which was **not** fetched, since the authorization
 covered Q1/Q2 and those are answered. Question 2 stands open.
+
+---
+
+## P. Q3 / Q4 ratified — structural layers and desktop-local credentials
+
+Both are operator decisions, recorded as given. Neither authorizes code.
+
+### P.1 Strict structural layers
+
+> One `LayerDefinition.kind` maps to one rendering pipeline, with
+> `SpatialProduct.kind` required to agree for spatial layers. Conceptual
+> Weather grouping stays separate from structural layer identity.
+
+**The substrate already exists.** `LayerDefinition` carries two independent
+axes today:
+
+| Axis | Field | Values |
+|---|---|---|
+| Structural | `kind` | `observation \| imagery \| field` |
+| Conceptual | `category` | `imagery \| reporting \| movement \| environment \| infrastructure` |
+
+The `kind` field is already commented *"Structural kind. Decides which
+pipeline and renderer the layer uses."* — the ratified intent is the
+documented intent. **The gap is enforcement, not concept.** And the existing
+weather layer already separates the axes: `category: "environment"`,
+`kind: "imagery"`.
+
+So the decision mostly ratifies what the types already say, and makes the
+missing check mandatory.
+
+**A vocabulary trap this decision exposes.** `"imagery"` is a member of
+*both* enums. At least one layer is `category: "imagery"` with
+`kind: "observation"` — conceptually imagery, structurally point records,
+which is legitimate under the ratified rule but unreadable at a glance. A
+rule whose whole purpose is to keep two axes apart is undermined by the two
+axes sharing a token. Renaming is out of scope here; flagged so the decision
+is made deliberately rather than inherited.
+
+**Shape this produces for the Weather group:**
+
+```
+category: "environment"        ← conceptual "Weather" grouping
+  ├── kind: "imagery"       radar surfaces (NOAA today)
+  ├── kind: "observation"   DPIRD stations (C5a)
+  └── kind: "field"         Open-Meteo (C5b, needs the field renderer)
+```
+
+**Consequences to resolve before implementing:**
+
+1. **Where enforcement lives** — API-side (registry rejects a loader whose
+   product kind disagrees), frontend-side (`spatial-layers.ts` refuses to
+   render), or both, plus a test that encodes it. Not yet decided.
+2. **`/monitoring/weather` is an API path**, so the layer id is embedded in
+   the contract. Any structural split that renames or adds routes is an
+   `openapi.yaml` change followed by codegen — not a frontend-only edit.
+3. **It reinforces the C3 invariant.** Selecting a pipeline by `kind`
+   rather than by id is exactly "no `if (layerId === "weather")` in shared
+   rendering". The two rules agree.
+
+### P.2 DPIRD credentials are desktop-local user credentials
+
+> A desktop Settings surface stores the user's DPIRD API key in OS-secured
+> credential storage. The bundled localhost API reads it locally.
+> `DPIRD_API_KEY` remains an optional developer/deployment override.
+> Browser/PWA/mobile never receive or proxy the personal credential and
+> honestly report DPIRD as `unconfigured`.
+
+**What this costs nothing.** The Node side needs no new credential concept:
+`readDpirdApiKey(env)` mirroring the existing `readTfnswApiKey(env)` works
+unchanged. The environment variable is the *interface* between the Rust
+shell and the sidecar, which is why the developer override falls out for
+free rather than being a second mechanism.
+
+**What is genuinely new:**
+
+| Need | Current state |
+|---|---|
+| OS-secured credential storage | **No such dependency.** `Cargo.toml` has only `tauri`, `tauri-build`, `serde_json`. Adding one is a dependency change requiring approval. |
+| Settings surface | **No settings component exists** in the frontend. |
+| Key delivery to sidecar | `lib.rs` spawns with `PORT`, `NODE_ENV`, `HOST`. A fourth `.env("DPIRD_API_KEY", …)` is the natural addition. |
+
+**The consequence that needs a decision.** Environment variables are read at
+spawn. If the key is delivered that way, **changing or removing it requires
+restarting the sidecar** — otherwise a revoked key keeps working until the
+app is relaunched. §F.3 requires that removing a key makes the data
+disappear, so either the sidecar restarts on credential change, or a refresh
+path exists that does not depend on process environment. Spawn-time
+injection alone does not satisfy the revocation requirement.
+
+**What the decision preserves:** no shared operator credential, no hosted
+proxy, the key never reaches the browser, and the mobile story stays honest
+through the pre-existing `unconfigured` state rather than a new one.
