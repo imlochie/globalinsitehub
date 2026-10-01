@@ -53,6 +53,7 @@ export function maritimeLayerPanel(input: MaritimeLayerPanelInput): LayerPanelMo
     definition,
     enabled: input.enabled,
     onEnabledChange: input.onEnabledChange,
+    reachable: !input.isUnavailable,
     status,
     // Coverage is a caption on the layer itself, not a footnote in a dialog.
     note: `Regional: ${coverage.regions.join(' · ')}`,

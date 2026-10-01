@@ -200,6 +200,71 @@ model is visible rather than implicit.
 
 ---
 
+### 5.2 Three axes, not two (Checkpoint B)
+
+Checkpoint A described the badge as Available vs Active. Rendering every
+state empirically in Checkpoint B showed that two axes are not enough. With
+NOAA down the row displayed a lit green **Available ✓** immediately beside
+the status line **"Weather provider unavailable"**.
+
+Both statements were true, and that was the problem: they are facts about
+different layers, and the row presented them as if they were one.
+
+There are three independent facts:
+
+| Axis | Question | Source |
+| --- | --- | --- |
+| admitted | Has Signalwatch earned and built a source for this layer? | `definition.status === 'operational'` |
+| reachable | Is that source answering right now? | `panel.reachable` |
+| active | Has the user asked for it? | `panel.enabled` |
+
+Each possible collapse produces a specific lie, which is why the code
+comment in `LayerStateBadges` enumerates them:
+
+- **admitted + reachable** — a ten-minute NOAA outage would make an
+  implemented layer read as one Signalwatch never built. This is the exact
+  failure the Map 2.0 brief forbids: *never relabel an implemented
+  operational layer as Planned.*
+- **admitted + active** — a layer merely switched off would read as Planned.
+- **reachable + active** — switching a layer off would read as an outage.
+
+`reachable` is optional on `LayerPanelModel`. Absent means "no reason to
+think otherwise", so a layer with no runtime feed is never pushed into an
+outage state by omission.
+
+### 5.3 The panel may not contradict itself
+
+Three defects were found by rendering the states rather than reading the
+code, and they shared one shape: a summary computed from server facts,
+displayed beside a body computed from view facts.
+
+**"Surfaces drawn" counted products, not surfaces.** The server reports the
+radar product as covered whenever NOAA answers — true regardless of where
+the user is looking. So over Europe the panel said *Surfaces drawn: 1* above
+an empty map. The count now comes from the view-resolved surfaces, with the
+product count kept only as the fallback for before any view is reported.
+
+**The headline claimed availability while drawing nothing.** *"Weather
+surfaces available"* sat directly above *"No radar source here"*. The
+headline now reports the silence, and distinguishes its two causes:
+
+| Situation | Headline | Tone |
+| --- | --- | --- |
+| drawing | Weather surfaces available | good |
+| drawing, old frame | Weather surface is stale | warn |
+| outside coverage | No radar source in this view | quiet |
+| past the scale cap | Not drawn at this zoom | quiet |
+| provider silent | Weather provider unavailable | bad |
+
+The tone matters as much as the text. An honest coverage limit is **quiet**,
+not **warn**: nothing is wrong, and styling it as a problem would train the
+user to read "we have no source here" as "something broke".
+
+The rule these share: **a summary derived from one set of facts must not be
+displayed beside a body derived from another without being reconciled.** The
+general hazard is that server-side availability and view-side renderability
+are both called "available" in casual speech while meaning different things.
+
 ## 6. What was deliberately not done
 
 - **No layer was suppressed without evidence.** Only radar restricts its

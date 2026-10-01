@@ -1,6 +1,10 @@
 # NWS radar base reflectivity (WMS) — admission record
 
-**Status: ADOPT.** The two conditions left open by `weather-source-admission.md`
+**Status: ADOPT — implemented, awaiting operational sign-off.**
+Runtime behaviour is verified in `nws-radar-operational-verification.md`;
+that record, not this one, is where radar becomes "operationally verified".
+
+The two conditions left open by `weather-source-admission.md`
 are now satisfied. Researched 2026-10-01 against Signalwatch `a577716`, under
 `source-admission-standard.md`.
 

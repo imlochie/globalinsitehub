@@ -71,12 +71,31 @@ function formatCadence(ms: number): string {
   return `${Math.round(ms / 60_000)} min`;
 }
 
+/**
+ * Headline for a layer that is working but drawing nothing in this view.
+ *
+ * The two reasons are kept apart because they are different facts: one is
+ * about the world (nobody observes here), the other about the view (you are
+ * closer than the samples). Neither is a statement about the weather.
+ */
+function describeSilence(silenced: RenderableImagery[]): string {
+  const outside = silenced.filter((s) => s.availability === 'outside-coverage');
+  const zoomed = silenced.filter((s) => s.availability === 'beyond-resolution');
+  if (outside.length > 0 && zoomed.length === 0) return 'No radar source in this view';
+  if (zoomed.length > 0 && outside.length === 0) return 'Not drawn at this zoom';
+  return 'No radar surface drawn in this view';
+}
+
 export function weatherLayerPanel(input: WeatherLayerPanelInput): LayerPanelModel {
   const definition = input.definition ?? layerRegistry.require('weather');
   const coverage = layerCoverage(definition);
   const now = input.now ?? new Date();
   const products = input.products;
-  const drawable = products.filter(
+  /**
+   * Products the provider says it is serving. A server-side fact: it knows
+   * nothing about where the user is looking.
+   */
+  const servable = products.filter(
     (product) =>
       product.imagery !== null &&
       (product.availability === 'covered' || product.availability === 'stale'),
@@ -86,6 +105,22 @@ export function weatherLayerPanel(input: WeatherLayerPanelInput): LayerPanelMode
   ).length;
 
   const surfaces = input.surfaces ?? [];
+  /**
+   * Surfaces actually on the map right now.
+   *
+   * This is deliberately not `servable.length`. The server reports the radar
+   * product as covered whenever NOAA is answering, which is true regardless
+   * of the viewport — so counting products claimed "1 surface drawn" while
+   * the user was looking at Europe and the map was empty. A count the user
+   * can see is wrong is worse than no count.
+   *
+   * When no view has been reported yet the product count is the only honest
+   * answer available, so it is used as the fallback.
+   */
+  const drawnCount =
+    input.surfaces === undefined
+      ? servable.length
+      : surfaces.filter((surface) => surface.render).length;
   /**
    * Surfaces that are silent because of where or how the user is looking,
    * rather than because the provider failed.
@@ -109,14 +144,23 @@ export function weatherLayerPanel(input: WeatherLayerPanelInput): LayerPanelMode
         ? { label: 'Weather metadata request failed', tone: 'warn' }
         : input.isLoading
           ? { label: 'Loading weather surfaces', tone: 'quiet' }
-          : staleCount > 0
-            ? { label: 'Weather surface is stale', tone: 'warn' }
-            : { label: 'Weather surfaces available', tone: 'good' };
+          : // Nothing is drawn, and the reason is where or how the user is
+            // looking rather than a fault. Without this branch the headline
+            // read "Weather surfaces available" directly above the panel
+            // saying "No radar source here", which is a contradiction the
+            // user has to resolve themselves. Tone is quiet, not warn: an
+            // honest coverage limit is not a problem to be fixed.
+            viewSilenced.length > 0 && drawnCount === 0
+            ? { label: describeSilence(viewSilenced), tone: 'quiet' }
+            : staleCount > 0
+              ? { label: 'Weather surface is stale', tone: 'warn' }
+              : { label: 'Weather surfaces available', tone: 'good' };
 
   return {
     definition,
     enabled: input.enabled,
     onEnabledChange: input.onEnabledChange,
+    reachable: !input.isUnavailable,
     status,
     note: `Regional: ${coverage.regions.join(' · ')}`,
     noteTestId: 'text-weather-coverage',
@@ -133,7 +177,7 @@ export function weatherLayerPanel(input: WeatherLayerPanelInput): LayerPanelMode
     metrics: [
       {
         label: 'Surfaces drawn',
-        value: String(drawable.length),
+        value: String(drawnCount),
         testId: 'weather-surfaces-drawn',
       },
       {

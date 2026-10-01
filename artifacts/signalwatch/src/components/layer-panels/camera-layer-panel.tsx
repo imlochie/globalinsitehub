@@ -80,6 +80,7 @@ export function cameraLayerPanel(input: CameraLayerPanelInput): LayerPanelModel 
     definition,
     enabled: input.enabled,
     onEnabledChange: input.onEnabledChange,
+    reachable: !input.isUnavailable,
     status,
     note: 'Feed status: not probed',
     noteTestId: 'text-camera-feed-status',

@@ -62,6 +62,7 @@ export function naturalHazardLayerPanel(
     definition,
     enabled: input.enabled,
     onEnabledChange: input.onEnabledChange,
+    reachable: !input.isUnavailable,
     status,
     note: `${coverage.scope === 'global' ? 'Global' : 'Regional'}: ${coverage.regions.join(' · ')}`,
     noteTestId: 'text-natural-hazards-coverage',

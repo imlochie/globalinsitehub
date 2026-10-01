@@ -494,6 +494,15 @@ actually returns.
 
 ### 12.1 Promoting radar to "operationally verified"
 
+> **Checkpoint B.** The procedure below now has a dedicated record with a
+> fillable operator table:
+> `providers/nws-radar-operational-verification.md`. Radar remains
+> **implemented, awaiting operator sign-off** — the sandbox has no provider
+> egress and no browser, so geographic placement, request origin, anti-churn
+> and WebView2 rendering cannot be established here. Record a failed or
+> unrun check as `BLOCKED: <reason>`; never convert it to PASS.
+
+
 Weather Batch 1 is *structurally* complete. NOAA radar stays **admitted and
 implemented** rather than **operationally verified** until the provider has
 been exercised for real, because this is the point at which the integration

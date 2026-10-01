@@ -20,6 +20,16 @@ export type LayerPanelModel = {
   definition: LayerDefinition;
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
+  /**
+   * Whether the layer's feed is answering right now.
+   *
+   * Separate from `definition.status`, which says whether Signalwatch has an
+   * admitted source at all. A transient provider outage must not make an
+   * implemented layer look unimplemented, and an admitted source that is
+   * currently silent must not read as healthy. Omit for layers with no
+   * runtime feed; absent means "no reason to think otherwise".
+   */
+  reachable?: boolean;
   status: { label: string; tone: StatusTone };
   /** Extra caption rendered next to the layer title. */
   note?: string;

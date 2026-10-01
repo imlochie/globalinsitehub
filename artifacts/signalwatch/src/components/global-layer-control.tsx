@@ -6,7 +6,7 @@ import React from 'react';
  * models; planned rows come straight from the registry. No layer ids are
  * hard-coded here.
  */
-import { Activity, Archive, Check, Circle, CircleDot, FlaskConical, Radio } from 'lucide-react';
+import { Activity, Archive, Check, Circle, CircleDot, CircleSlash, FlaskConical, Radio } from 'lucide-react';
 import { layerIcon } from '@/components/layer-icons';
 import type { LayerPanelMetric, LayerPanelModel } from '@/components/layer-panels/types';
 import { layerRegistry, type LayerDefinition, type LayerRegistry } from '@/lib/layer-registry';
@@ -67,12 +67,20 @@ function Toggle({
  * a choice the user already made.
  */
 function LayerStateBadges({
-  available,
+  admitted,
+  reachable,
   active,
 }: {
-  available: boolean;
+  admitted: boolean;
+  reachable: boolean;
   active: boolean;
 }) {
+  // Three independent facts, three independent readouts. Collapsing any pair
+  // of them produces a specific lie:
+  //   admitted + reachable -> a NOAA outage would read as "not implemented"
+  //   admitted + active    -> an unused layer would read as "Planned"
+  //   reachable + active   -> switching a layer off would read as an outage
+  const available = admitted && reachable;
   return (
     <span
       className="inline-flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.1em]"
@@ -84,15 +92,20 @@ function LayerStateBadges({
         className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${
           available
             ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
-            : 'border-border/70 text-muted-foreground'
+            : 'border-amber-400/40 bg-amber-400/10 text-amber-300'
         }`}
+        title={
+          available
+            ? undefined
+            : 'Signalwatch has an admitted source for this layer, but it is not answering right now.'
+        }
       >
         {available ? (
           <Check className="size-2.5" aria-hidden="true" />
         ) : (
-          <Circle className="size-2.5" aria-hidden="true" />
+          <CircleSlash className="size-2.5" aria-hidden="true" />
         )}
-        Available
+        {available ? 'Available' : 'Not available'}
       </span>
       <span
         className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${
@@ -155,7 +168,8 @@ function OperationalLayerRow({ panel }: { panel: LayerPanelModel }) {
                 {definition.label}
               </h3>
               <LayerStateBadges
-                available={definition.status === 'operational'}
+                admitted={definition.status === 'operational'}
+                reachable={panel.reachable ?? true}
                 active={panel.enabled}
               />
               {panel.note ? (

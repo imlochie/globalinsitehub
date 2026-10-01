@@ -514,3 +514,136 @@ test("the signature ignores freshness and availability churn", () => {
   assert.equal(stale.render, true, "stale imagery is still real data");
   assert.equal(imageryRenderSignature([fresh]), imageryRenderSignature([stale]));
 });
+
+/* -------------------------------------------------------------------------- */
+/* The panel must not contradict itself                                       */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Checkpoint B found three ways the panel disagreed with the map. Each of
+ * these reproduces one of them.
+ */
+function panelFor(
+  enabled: boolean,
+  viewport: { west: number; south: number; east: number; north: number },
+  band: MapScaleBand,
+  overrides: Partial<SpatialProduct> = {},
+  flags: Record<string, unknown> = {},
+) {
+  const product = radarProduct(overrides);
+  const surface = toRenderableImagery(product, viewport, NOW, {
+    band,
+    scale: WEATHER_SCALE,
+  });
+  return weatherLayerPanel({
+    enabled,
+    onEnabledChange: () => {},
+    products: [product],
+    surfaces: surface ? [surface] : [],
+    isLoading: false,
+    isFetching: false,
+    hasError: false,
+    isUnavailable: false,
+    now: NOW,
+    ...flags,
+  });
+}
+
+function metric(panel: ReturnType<typeof weatherLayerPanel>, testId: string) {
+  return panel.metrics?.find((entry) => entry.testId === testId)?.value;
+}
+
+test('"Surfaces drawn" counts what is on the map, not what the server serves', () => {
+  // The server reports the product as covered whenever NOAA answers, which
+  // is true no matter where the user is looking. Counting products claimed
+  // one surface was drawn over Europe while the map was empty.
+  assert.equal(metric(panelFor(true, OVER_CONUS, "city"), "weather-surfaces-drawn"), "1");
+  assert.equal(metric(panelFor(true, OVER_EUROPE, "city"), "weather-surfaces-drawn"), "0");
+  assert.equal(
+    metric(panelFor(true, OVER_CONUS, "streetContext"), "weather-surfaces-drawn"),
+    "0",
+  );
+});
+
+test("the headline never claims surfaces are available while drawing none", () => {
+  // Previously the headline read "Weather surfaces available" directly
+  // above the body saying "No radar source here".
+  const europe = panelFor(true, OVER_EUROPE, "city");
+  assert.equal(europe.status.label, "No radar source in this view");
+  assert.equal(europe.status.tone, "quiet");
+
+  const zoomed = panelFor(true, OVER_CONUS, "streetContext");
+  assert.equal(zoomed.status.label, "Not drawn at this zoom");
+  assert.equal(zoomed.status.tone, "quiet");
+
+  // An honest coverage limit is not a fault, so it must not be toned as one.
+  assert.notEqual(europe.status.tone, "bad");
+  assert.notEqual(zoomed.status.tone, "warn");
+
+  // And the working case is unchanged.
+  assert.equal(
+    panelFor(true, OVER_CONUS, "city").status.label,
+    "Weather surfaces available",
+  );
+});
+
+test("stale still reports as stale rather than as silence", () => {
+  // Stale imagery is drawn, so the silence branch must not swallow it.
+  const stale = panelFor(true, OVER_CONUS, "city", {
+    sourceTimestamp: "2026-10-01T11:00:00.000Z",
+  });
+  assert.equal(stale.status.label, "Weather surface is stale");
+  assert.equal(metric(stale, "weather-surfaces-drawn"), "1");
+});
+
+test("a provider outage reads as not available without erasing the source", () => {
+  const down = panelFor(true, OVER_CONUS, "city", { availability: "unavailable" }, {
+    isUnavailable: true,
+  });
+  assert.equal(down.reachable, false);
+  const html = renderToStaticMarkup(
+    React.createElement(GlobalLayerControl, { layers: [down] }),
+  );
+  assert.match(html, /layer-state-unavailable-active/);
+  assert.match(html, />Not available</);
+  // The layer is still admitted and implemented: it must not fall back into
+  // the planned group, and must not read as a layer Signalwatch never built.
+  assert.ok(!/row-planned-layer-weather/.test(html));
+  assert.match(html, /Weather provider unavailable/);
+});
+
+test("the four admitted/reachable/active combinations stay distinct", () => {
+  const seen = new Set<string>();
+  for (const enabled of [false, true]) {
+    for (const unavailable of [false, true]) {
+      const panel = panelFor(
+        enabled,
+        OVER_CONUS,
+        "city",
+        unavailable ? { availability: "unavailable" } : {},
+        { isUnavailable: unavailable },
+      );
+      const html = renderToStaticMarkup(
+        React.createElement(GlobalLayerControl, { layers: [panel] }),
+      );
+      const id = /data-testid="(layer-state-[a-z-]+)"/.exec(html)?.[1];
+      assert.ok(id, "badge must always render a state id");
+      seen.add(id);
+    }
+  }
+  // Four inputs, four distinguishable readouts. Any collapse here is a lie
+  // about one of: whether a source exists, whether it answers, whether the
+  // user asked for it.
+  assert.equal(seen.size, 4);
+});
+
+test("layers with no runtime feed are not marked unreachable", () => {
+  // `reachable` is optional; absent must mean "no reason to think otherwise"
+  // rather than defaulting a feed-less layer into an outage state.
+  const panel = panelFor(true, OVER_CONUS, "city");
+  const { reachable: _dropped, ...withoutReachable } = panel;
+  const html = renderToStaticMarkup(
+    React.createElement(GlobalLayerControl, { layers: [withoutReachable] }),
+  );
+  assert.match(html, /layer-state-available-active/);
+});

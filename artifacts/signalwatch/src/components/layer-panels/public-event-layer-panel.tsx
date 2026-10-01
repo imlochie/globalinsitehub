@@ -70,6 +70,7 @@ export function publicEventLayerPanel(
     definition,
     enabled: input.enabled,
     onEnabledChange: input.onEnabledChange,
+    reachable: !input.isUnavailable,
     status,
     note: `Regional: ${coverage.regions.join(' · ')}`,
     noteTestId: 'text-public-events-coverage',
