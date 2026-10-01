@@ -21,6 +21,54 @@ without breaking the existing admission model.
 
 ---
 
+## Headline findings
+
+Three things from this review determine the shape of C5. They are stated here
+because each was found late, and each would have been expensive to discover
+during implementation.
+
+**1. Reusing the cache must not mean reusing its semantics.**
+
+`memory-cache.ts` already provides per-provider `cacheTtlMs`, `retryTtlMs`,
+ETag/304 revalidation, single-flight and an `available | stale | unavailable`
+tri-state. C5 must converge onto it rather than add a fourth caching posture.
+
+But its `stale` path is **not universally correct**:
+
+```
+refresh fails
+   ↓
+existing abstraction serves stale records
+   ↓
+for DPIRD, those records may already have been withdrawn upstream
+```
+
+Serving withdrawn data is precisely what DPIRD's removal clause forbids. So
+the change is:
+
+```
+reuse cache mechanics
+  + provider-specific retention / stale policy
+```
+
+Narrower and more defensible than a new abstraction — but it means
+stale-serving has to become a per-provider decision, not a global default.
+**This is the real blocker, and it is a semantics problem, not a capability
+gap.**
+
+**2. Fields are not imagery, so Open-Meteo is a subsystem, not a provider.**
+
+`SpatialFieldDescriptor` is design-only and no field renderer exists on
+either surface. Open-Meteo therefore sits behind a field-rendering pipeline
+that has to be built first.
+
+**3. DPIRD's credential model splits the platform.** A non-transferable key
+usable only for direct server calls fits a local desktop instance and cannot
+fit a hosted backend serving many phones. DPIRD is desktop-only under the
+researched terms, degrading to `unconfigured` elsewhere.
+
+---
+
 ## A. Current repository state
 
 | Commit | Content |
@@ -106,6 +154,19 @@ ADOPT WITH CONDITIONS:
 observations plus the radar-absence presentation only, with Open-Meteo fields
 as C5b. The reason is in §D.1: fields require a renderer that does not exist,
 which is a much larger change than adding a provider.
+
+**DPIRD rainfall probably does not need that renderer.** The C4 record
+characterises the Radar API as a **point query** returning numeric
+accumulations at a location, not a grid. Semantically it is a *derived
+field*; structurally it is a value at a coordinate, which the observation
+path already renders. If the OpenAPI spec confirms that payload shape, DPIRD
+rainfall belongs in **C5a with the station observations**, and nothing in
+C5a requires the field pipeline at all.
+
+This is the clearest example of why the finer taxonomy should stay
+documentary (§J/§N): "derived field" is the right *semantic* label and the
+wrong *render* kind. Collapsing the two would push a point query into a
+raster pipeline it does not need.
 
 ---
 
