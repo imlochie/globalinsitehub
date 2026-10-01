@@ -128,20 +128,54 @@ particles.
 Implication: "add Open-Meteo" is not a provider task. It is a **new render
 pipeline** plus a provider. That is C5-sized on its own.
 
-### D.2 Cache TTL is global, not per-product
+### D.2 Cache TTL is global in *two* pipelines — but the fix already exists
+
+*(Corrected 2 October 2026 — the original version of this section overstated
+the work. See §N.)*
+
+`weather-sources/registry.ts` has one TTL for every loader:
 
 ```
 const CACHE_TTL_MS = REFRESH_INTERVAL_MS;   // NOAA's 10 minutes
 ```
 
-One TTL governs every loader. Cadences differ sharply: DPIRD uploads roughly
-every 6 minutes, Open-Meteo models run 4×/day, SILO is daily. A single TTL
-would either over-request the slow providers or under-refresh the fast ones —
-and over-requesting is an appropriate-use problem, not merely waste.
+Cadences differ sharply — DPIRD uploads roughly every 6 minutes, Open-Meteo
+runs 4×/day, SILO is daily — and over-requesting a slow provider is an
+appropriate-use problem, not merely waste.
 
-`SpatialProduct.refreshIntervalMs` **already exists per product**, so the fix
-is to drive expiry from it rather than from a module constant. Required
-before a second provider with a different cadence is added.
+But this is **not** a missing capability. There are eight independent
+hardcoded TTLs in the API server, and the four provider pipelines have three
+different caching postures:
+
+| Pipeline | Cache | Per-provider TTL |
+|---|---|---|
+| `camera-providers` | `memory-cache.ts` | **yes** — `cacheTtlMs?` + `retryTtlMs?` |
+| `maritime-providers` | `memory-cache.ts` | **yes** — `cacheTtlMs?` + `retryTtlMs?` |
+| `public-event-providers` | registry-level | no — global `60_000` |
+| `weather-sources` | registry-level | no — global `REFRESH_INTERVAL_MS` |
+
+`createMemoryCachedCameraProvider` and `createMemoryCachedVesselProvider`
+already provide, per provider:
+
+- a configurable `cacheTtlMs` with a documented default;
+- a **separate `retryTtlMs`** so a failing provider backs off differently
+  from a healthy one;
+- ETag / HTTP 304 revalidation (camera), which is the mechanism that makes
+  "match poll cycles to refresh frequency" cheap to honour;
+- single-flight via an in-flight promise;
+- an explicit `available | stale | unavailable` tri-state.
+
+So the correct characterisation is **convergence, not invention**: two
+pipelines already solved this and two did not adopt it. Any C5 work must
+reuse `memory-cache.ts` rather than add a third cache implementation.
+
+`SpatialProduct.refreshIntervalMs` already exists per product and is the
+right value to feed into `cacheTtlMs` for spatial products.
+
+**Consequence for sequencing:** if DPIRD lands in the observation
+architecture, the per-provider TTL capability it needs **already exists**,
+and C5a is not gated on this at all. The gap is specific to the
+`weather-sources` registry — i.e. it gates C5b, not C5a.
 
 ### D.3 The data path changes, and so does the retention obligation
 
@@ -158,10 +192,20 @@ server calls, so the values must pass through and be cached, and DPIRD's
 removal clause makes that cache a **lease, not a store**.
 
 Nothing in the codebase currently expresses "this cached provider data must
-be dropped when upstream withdraws it". That concept has to be designed —
-minimally, a short TTL with no stale-serving fallback, so withdrawal
-propagates within one cycle. **A stale-while-revalidate strategy would be
-non-compliant here**, which is worth stating because it is the usual instinct.
+be dropped when upstream withdraws it". But the *mechanism* is largely
+present: a short per-provider `cacheTtlMs` (§D.2) plus ETag revalidation
+means a withdrawal propagates within one cycle without new machinery.
+
+What is genuinely missing is the **policy**, and one specific conflict:
+`memory-cache.ts` deliberately serves `stale` records after a failed refresh,
+which is correct for a camera catalogue and **wrong for DPIRD**, where
+continuing to serve withdrawn data is the exact failure the clause forbids.
+So DPIRD needs `stale` suppressed — a configuration decision on an existing
+abstraction, not a new cache.
+
+**A stale-while-revalidate strategy would be non-compliant here**, which is
+worth stating plainly because it is both the usual instinct *and* the
+established behaviour of the abstraction C5 should otherwise reuse.
 
 ### D.4 Layer kind and product kind are not reconciled
 
@@ -398,7 +442,7 @@ unresolved question.
 | Step | Work | Gated on |
 |---|---|---|
 | **C5.0** | Resolve blocking questions 1, 3, 4, 6 (§J). Documentation only. | — |
-| **C5.1** | Per-product cache TTL from `refreshIntervalMs`; retention/withdrawal policy expressed in code. No new provider. | — |
+| **C5.1** | Converge `weather-sources` onto the existing `memory-cache.ts` per-provider TTL pattern; express the retention/withdrawal policy (incl. suppressing `stale` for withdrawal-bound providers). No new provider. **Gates C5b, not C5a.** | — |
 | **C5.2** | Credential surface: per-user key entry, storage, `unconfigured` reporting, revocation. No provider. | Q6 |
 | **C5.3** | DPIRD provider: observations + rainfall accumulation, WA-only coverage, CC BY 3.0 AU, desktop-only with honest mobile degradation. | C5.1, C5.2, Q1, Q2, Q3 |
 | **C5.4** | Australian radar-absence presentation verified by acceptance test. | C5.3 |
@@ -434,3 +478,47 @@ Nothing in C4 or this review authorises implementation. The research document
 does not become code by default.
 
 **STOP. Awaiting explicit implementation approval.**
+
+---
+
+## N. Corrections to this review
+
+Recorded rather than silently rewritten, because this document gates
+implementation and the reasoning trail is part of its value.
+
+**2 October 2026 — §D.2 overstated the work; §D.3 and §L adjusted.**
+
+The original §D.2 concluded that per-product cache TTL was "a required
+architectural change before C5". Further inspection of the sibling pipelines
+showed the capability already exists: `camera-providers/memory-cache.ts` and
+`maritime-providers/memory-cache.ts` both expose per-provider `cacheTtlMs`
+and `retryTtlMs`, with ETag/304 revalidation, single-flight and an
+`available | stale | unavailable` tri-state. Two of four provider pipelines
+already use it; `weather-sources` and `public-event-providers` do not.
+
+Why the first pass missed it: the inspection followed the weather path -
+`weather-sources/registry.ts` - and found a global constant there. It did not
+ask whether a sibling pipeline had already solved the same problem. That is
+the "check for partial existence / reuse abstractions" step of the mandated
+engineering method, applied one directory too narrowly.
+
+Three consequences:
+
+1. The work is **convergence on an existing abstraction, not invention**. An
+   implementation driven by the original §D.2 would plausibly have added a
+   third cache implementation - precisely what "do not build parallel
+   systems" forbids.
+2. **C5a is not gated on the cache change.** If DPIRD station observations
+   belong in the observation architecture, the per-provider TTL they need is
+   already available. The gap is specific to `weather-sources`, so it gates
+   C5b.
+3. A **conflict** surfaced that the original review could not have seen:
+   `memory-cache.ts` intentionally serves stale records after a failed
+   refresh, which is right for a camera catalogue and wrong for a provider
+   with a withdrawal duty. Reuse here is therefore reuse *with a deliberate
+   behavioural override*, not adoption as-is.
+
+The blocking questions in §J are unchanged, and question 3 - whether DPIRD
+station observations are observations or a spatial product - is now the
+question that decides which pipeline, and therefore which of these findings
+applies.
