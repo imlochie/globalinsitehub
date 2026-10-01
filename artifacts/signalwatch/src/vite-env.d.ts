@@ -20,6 +20,8 @@ declare global {
     __SIGNALWATCH_DESKTOP__?: boolean;
     /** Startup diagnostics, surfaced on screen in the desktop shell only. */
     __SIGNALWATCH_DIAG__?: Record<string, string>;
+    /** Injected by Tauri v2 in every webview; absent in a browser. */
+    __TAURI_INTERNALS__?: unknown;
   }
 }
 

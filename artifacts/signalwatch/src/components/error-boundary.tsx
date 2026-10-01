@@ -36,6 +36,25 @@ function toError(value: unknown): Error {
 }
 
 /**
+ * Detects the packaged desktop shell.
+ *
+ * Four independent signals, because relying on a single one has already cost a
+ * build cycle: the injected marker, Tauri's Windows asset origin
+ * (`tauri.localhost`), its custom scheme on other platforms (`tauri:`), and
+ * the `__TAURI_INTERNALS__` object Tauri v2 always injects. None of these can
+ * be present in an ordinary browser, so production web builds are unaffected.
+ */
+function isSignalwatchDesktop(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.__SIGNALWATCH_DESKTOP__ === true ||
+    window.location.hostname === 'tauri.localhost' ||
+    window.location.protocol === 'tauri:' ||
+    '__TAURI_INTERNALS__' in window
+  );
+}
+
+/**
  * Error detail is shown in development and inside the packaged desktop shell.
  *
  * The desktop build has no devtools, so without this a crash is a blank
@@ -44,14 +63,34 @@ function toError(value: unknown): Error {
  * can carry API responses.
  */
 function showsErrorDetail(): boolean {
-  if (import.meta.env.DEV) return true;
-  return typeof window !== 'undefined' && window.__SIGNALWATCH_DESKTOP__ === true;
+  return import.meta.env.DEV || isSignalwatchDesktop();
+}
+
+/**
+ * Runtime facts, read at render time rather than taken from a value recorded
+ * during startup, so they are still correct if the crash happened before that
+ * startup code ran. Deliberately limited to routing/runtime values: no
+ * credentials, API keys or provider secrets.
+ */
+function runtimeDiagnostics(): Array<[string, string]> {
+  if (typeof window === 'undefined') return [];
+  const show = (value: unknown): string =>
+    value === undefined ? '(unset)' : value === null ? '(null)' : String(value);
+  return [
+    ['href', show(window.location.href)],
+    ['hostname', show(window.location.hostname)],
+    ['protocol', show(window.location.protocol)],
+    ['apiBase', show(window.__SIGNALWATCH_API_BASE__)],
+    ['desktopMarker', show(window.__SIGNALWATCH_DESKTOP__)],
+    ['tauriInternals', show('__TAURI_INTERNALS__' in window)],
+    ['baseUrl', show(import.meta.env.BASE_URL)],
+  ];
 }
 
 function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
   const detailed = showsErrorDetail();
-  const diagnostics =
-    typeof window !== 'undefined' ? window.__SIGNALWATCH_DIAG__ : undefined;
+  const diagnostics = detailed ? runtimeDiagnostics() : [];
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 p-6">
       <div className="max-w-lg w-full text-center">
@@ -62,6 +101,15 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
           This part of the app hit an error. The rest of the app is still
           running.
         </p>
+        {/*
+          Always rendered, deliberately unobtrusive: it tells us at a glance
+          whether a packaged build actually contains the current diagnostics,
+          instead of leaving "no detail shown" ambiguous between a stale build
+          and a detection failure.
+        */}
+        <p className="mt-1 text-[10px] text-gray-400" data-testid="text-error-revision">
+          diagnostics r2
+        </p>
         {detailed ? (
           <pre
             className="mt-4 max-h-64 overflow-auto rounded bg-gray-100 p-3 text-left text-xs text-gray-800"
@@ -71,14 +119,12 @@ function DefaultFallback({ error, resetError }: ErrorFallbackProps) {
             {error.stack ? `\n\n${error.stack}` : ''}
           </pre>
         ) : null}
-        {detailed && diagnostics ? (
+        {detailed && diagnostics.length > 0 ? (
           <pre
             className="mt-2 overflow-auto rounded bg-gray-100 p-3 text-left text-xs text-gray-800"
             data-testid="text-error-diagnostics"
           >
-            {Object.entries(diagnostics)
-              .map(([key, value]) => `${key}: ${value}`)
-              .join('\n')}
+            {diagnostics.map(([key, value]) => `${key}: ${value}`).join('\n')}
           </pre>
         ) : null}
         <button
