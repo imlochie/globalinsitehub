@@ -279,6 +279,7 @@ function radarProduct(overrides: Partial<SpatialProduct> = {}): SpatialProduct {
       layer: "radar_base_reflectivity_time",
       version: "1.3.0",
       crs: "EPSG:3857",
+      supportedCrs: ["CRS:84", "EPSG:4326", "EPSG:3857"],
       format: "image/png",
       transparent: true,
       timeParameter: "time",

@@ -130,6 +130,12 @@ const IMAGERY: SpatialImageryService = {
   layer: NWS_RADAR_WMS_LAYER,
   version: "1.3.0",
   crs: IMAGERY_CRS,
+  // Read from the service's own GetCapabilities (WMS 1.3.0). CRS:84 matters
+  // beyond the map: it is longitude-first, so a renderer needing an
+  // equirectangular frame can use it without the axis reversal WMS 1.3.0
+  // applies to EPSG:4326. Recorded here, with the provider, so no renderer
+  // has to carry NOAA-specific knowledge.
+  supportedCrs: ["CRS:84", "EPSG:4326", "EPSG:3857"],
   format: "image/png",
   transparent: true,
   // The service is time-enabled over a four-hour moving window. Signalwatch

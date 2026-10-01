@@ -147,6 +147,16 @@ export function toGlobeImageryTiles(
     const definition = layerRegistry.get(surface.layerId);
     if (!definition?.capabilities.globe) continue;
 
+    // The globe needs an equirectangular frame, which is a different
+    // projection from the one the 2D map requests. Whether the provider can
+    // serve it is a fact about the provider, so it is read from the service
+    // descriptor rather than assumed. Fail closed: a service that does not
+    // document CRS:84 support gets no surface at all, because requesting an
+    // unadvertised projection would either error or — far worse — return a
+    // plausible image in the wrong projection, putting weather in the wrong
+    // place on a layer whose entire value is being in the right place.
+    if (!surface.service.supportedCrs?.includes(GLOBE_IMAGERY_CRS)) continue;
+
     const areas: SpatialBounds[] =
       surface.areas.length > 0
         ? surface.areas

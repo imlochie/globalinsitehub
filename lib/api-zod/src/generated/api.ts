@@ -415,6 +415,7 @@ export const GetMonitoringWeatherResponse = zod.object({
   "layer": zod.string(),
   "version": zod.string(),
   "crs": zod.string().describe('Requested CRS. EPSG:3857 is used deliberately because WMS 1.3.0 reverses axis order for EPSG:4326.'),
+  "supportedCrs": zod.array(zod.string()).describe('Every CRS the service advertises in its own GetCapabilities. `crs` above is what the 2D map requests; this is what the provider is documented to support. They are different questions, and a renderer needing a different projection - the globe needs an equirectangular one - must check this rather than assume. An empty list means "not established from provider documentation", and a renderer must then draw nothing rather than guess.'),
   "format": zod.string(),
   "transparent": zod.boolean(),
   "timeParameter": zod.string().nullable().describe('Name of the time parameter when the service is time-enabled. Omitting the parameter asks the provider for its most recent frame.'),

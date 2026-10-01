@@ -119,6 +119,20 @@ NOAA advertises all three in its GetCapabilities, so this needs no new
 provider permission — it is the same admitted service, requested in a
 projection it already publishes.
 
+**This is verified, not assumed.** The service descriptor carries
+`supportedCrs`, the list the provider advertises in its own GetCapabilities,
+recorded in `nws-radar.ts` alongside the rest of the NOAA facts so that no
+renderer has to carry provider-specific knowledge. The globe projects only
+when `CRS:84` appears in that list and **fails closed otherwise** — including
+when the list is empty, meaning "not established from provider
+documentation".
+
+The failure mode this prevents is worse than an error: requesting an
+unadvertised projection can return a *plausible image in the wrong
+projection*, which would place weather confidently in the wrong location on
+a layer whose entire value is being in the right place. Drawing nothing is
+the correct failure.
+
 ### 4.2 Texture size
 
 Longest edge capped at 2048 px, aspect ratio preserved. Matching MRMS's ~565 m
@@ -198,6 +212,34 @@ the API to defeat it — that would break the standing invariant that provider
 imagery goes browser→NOAA directly, and would make Signalwatch a redistributor
 of NOAA imagery rather than a client of it.
 
+### 6.2 Mobile and WebGL degradation
+
+The weather surface is mounted **inside** the existing WebGL guard in
+`interactive-sector-globe.tsx`: the globe is lazily loaded only when
+`webglAvailable` is true, wrapped in `WebGLErrorBoundary` with a static
+fallback. The `imagery` prop is passed to `SatelliteSectorGlobe`, which lives
+inside that branch, so on a device without WebGL **none of this code runs at
+all**.
+
+The resulting degradation chain is honest and unchanged from before C3:
+
+```
+no WebGL  ->  globe falls back to the static view (still usable)
+          ->  weather is simply absent from the globe renderer
+          ->  the 2D map continues to serve NOAA radar normally
+```
+
+**No low-fidelity weather approximation was invented.** There is no
+simplified raster, no coloured overlay and no "weather-ish" shading standing
+in for radar on weak devices. A surface is either the admitted provider
+imagery, correctly projected, or it is absent and said to be absent.
+
+The 2D path is structurally insulated: it reads the service descriptor and
+never the globe capability, which is asserted by *granting the globe
+capability does not change what the 2D map requests*. If that test ever
+fails, the globe has become load-bearing for the map, which the mobile-first
+constraint forbids (see `mobile-first-constraint.md`).
+
 ---
 
 ## 7. Performance safeguards
@@ -231,8 +273,8 @@ Materials and their textures are disposed on teardown.
 
 ## 8. Tests
 
-`artifacts/signalwatch/tests/globe-imagery.test.tsx` (22 tests) plus three
-updated in `spatial-layer.test.tsx`. Frontend suite: **215 passing**.
+`artifacts/signalwatch/tests/globe-imagery.test.tsx` (33 tests) plus three
+updated in `spatial-layer.test.tsx`. Frontend suite: **226 passing**.
 
 Coverage maps to the checkpoint clauses:
 
@@ -256,6 +298,17 @@ Coverage maps to the checkpoint clauses:
 | §11 real changes detected | *a new provider frame does change imagery identity* |
 | §12 not selectable | *radar is not selectable and never enters the observation pipeline* |
 | §12 not counted | *projecting a surface produces no observation records* |
+| §15F geography | *a known CONUS coordinate falls in the CONUS patch and nowhere else* |
+| §15F geography | *a known CONUS coordinate maps to the expected point in the texture* |
+| §15F geography | *patch centroids project onto the globe at their own coordinates* |
+| §15F geography | *Guam and the Caribbean sit on opposite sides of the globe* |
+| §15G unsupported CRS | *a service that does not advertise CRS:84 is not projected* |
+| §15G unsupported CRS | *a service with no established CRS list fails closed on the globe* |
+| §15G unsupported CRS | *a product in an unrenderable CRS produces no surface anywhere* |
+| §15G provider failure | *an unavailable provider produces no globe surface* |
+| §14 fallback | *granting the globe capability does not change what the 2D map requests* |
+| §14 fallback | *the globe projection is a pure read and mutates no shared state* |
+| §14 fallback | *no surfaces at all is a silent state, not an error message* |
 
 ### 8.1 Mutation evidence
 
@@ -268,8 +321,19 @@ Tests were verified to bite, not merely to pass:
 | drop the `render` guard (paint outside coverage) | 3 |
 | signature ignores the texture URL | 1 |
 | drop the globe-capability check | 1 |
+| assume CRS:84 support instead of verifying it | 2 |
+| patch centroid uses the west edge instead of the centre | 1 |
+| patch height stretched 1.3x (Mercator-like) | 1 |
 
-All restored; 215/215 after each.
+All restored; 226/226 after each.
+
+The geography tests use `geoToGlobeVector` from the C2 solar module as an
+independent oracle, so patch placement is pinned to the same coordinate
+convention that was verified against three-globe's own source — a patch
+cannot be positioned by a different convention from the markers and lights
+around it. The texture test also computes the Mercator `v` for the same
+coordinate and asserts the two differ, so the test fails if it is ever
+rewritten in a way that would pass under either projection.
 
 ---
 
@@ -283,20 +347,31 @@ directly.
 Record each as PASS, FAIL, or `BLOCKED: <reason>`. **Never record an unrun
 check as PASS.**
 
+| # | Step | Expected | Result |
+|---|---|---|---|
+| 1 | Launch the current release build | Application starts | PENDING |
+| 2 | Open the 3D globe | Globe renders, lit by the solar model | PENDING |
+| 3 | Confirm the initial orientation | Australia-first, per C1 | PENDING |
+| 4 | Enable Weather | Layer activates; no error | PENDING |
+| 5 | Confirm Australia | **No NOAA radar surface**; the readout states there is no radar source, never "clear" | PENDING |
+| 6 | Rotate to CONUS | Radar surface appears | PENDING |
+| 7 | Confirm placement | Radar sits over the correct geography — check a known city against the echo pattern, not merely "a texture loaded" | PENDING |
+| 8 | Rotate the globe repeatedly | Surface stays locked to geography | PENDING |
+| 9 | Watch the Network panel while rotating | **No new `GetMap` requests** from rotation; no flicker or reload | PENDING |
+| 10 | Observe the Sun and terminator | Terminator still visible and physically placed | PENDING |
+| 11 | Confirm coexistence | Radar dims into the night side; it is readable but does not erase the terminator or glow as a bright rectangle | PENDING |
+| 12 | Click the radar surface | **Nothing is selected**; no inspector opens; observation counts unchanged | PENDING |
+| 13 | Click an observation marker | Still selectable exactly as before | PENDING |
+| 14 | Switch to the 2D map | NOAA behaviour unchanged; same provider, frame and attribution as the globe reported | PENDING |
+
+### 9.1 Additional checks this checkpoint requires
+
 | # | Check | Expected | Result |
 |---|---|---|---|
-| A | Open the globe with the weather layer enabled | Radar appears over the United States only | PENDING |
-| B | Rotate to the Pacific | Nothing drawn between Alaska and Guam; no transparent sheet across the ocean | PENDING |
-| C | Rotate to Australia | No radar surface; readout says *no radar source*, never "clear" | PENDING |
-| D | Rotate to Europe | Same as C | PENDING |
-| E | Open DevTools → Network, reload | Radar `GetMap` requests go **directly to mapservices.weather.noaa.gov**, return 200, and carry `Access-Control-Allow-Origin`. If the texture errors with a CORS message, record **FAIL — renderer limitation** and report it; do not proxy it | PENDING |
-| F | Rotate and zoom continuously for 60 s | **No new** `GetMap` requests in the Network panel | PENDING |
-| G | Wait 60 s without touching the camera | The solar readout advances; still **no new** `GetMap` requests | PENDING |
-| H | Watch the terminator where radar crosses it | Radar dims into the night side; the terminator remains visible through it and is not cut by a bright rectangle | PENDING |
-| I | Compare the globe against the 2D map at the same moment | Identical provider, frame timestamp, coverage statement and attribution; only the projection differs | PENDING |
-| J | Click a radar surface | Nothing is selected; no inspector opens; observation counts unchanged | PENDING |
-
----
+| 15 | DevTools → Network on first load | `GetMap` goes **directly to mapservices.weather.noaa.gov**, returns 200, and carries `Access-Control-Allow-Origin`. If the texture errors with a CORS message, record **FAIL — renderer limitation** and report it; do not proxy it | PENDING |
+| 16 | Wait 60 s without touching the camera | Solar readout advances; **no new `GetMap` requests** | PENDING |
+| 17 | Rotate to the Pacific between Alaska and Guam | Nothing drawn; no transparent sheet across the ocean | PENDING |
+| 18 | Rotate to Europe | No radar surface; no-source wording | PENDING |
 
 ## 10. Explicitly not done
 

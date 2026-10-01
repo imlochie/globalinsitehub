@@ -650,6 +650,8 @@ export interface SpatialImageryService {
   version: string;
   /** Requested CRS. EPSG:3857 is used deliberately because WMS 1.3.0 reverses axis order for EPSG:4326. */
   crs: string;
+  /** Every CRS the service advertises in its own GetCapabilities. `crs` above is what the 2D map requests; this is what the provider is documented to support. They are different questions, and a renderer needing a different projection - the globe needs an equirectangular one - must check this rather than assume. An empty list means "not established from provider documentation", and a renderer must then draw nothing rather than guess. */
+  supportedCrs: string[];
   format: string;
   transparent: boolean;
   /**

@@ -161,6 +161,17 @@ test("the imagery descriptor requests EPSG:3857, avoiding the 1.3.0 axis trap", 
   // WMS 1.3.0 reverses axis order for EPSG:4326; 3857 is requested so the
   // question never arises.
   assert.equal(product.imagery.crs, "EPSG:3857");
+  // The projections NOAA advertises in its own GetCapabilities, recorded so
+  // a renderer needing a different frame can check rather than assume. CRS:84
+  // is the longitude-first geographic option, which is what lets the globe
+  // request an equirectangular texture without the EPSG:4326 axis reversal.
+  assert.deepEqual(product.imagery.supportedCrs, [
+    "CRS:84",
+    "EPSG:4326",
+    "EPSG:3857",
+  ]);
+  // Whatever the map requests must itself be advertised by the provider.
+  assert.ok(product.imagery.supportedCrs.includes(product.imagery.crs));
   assert.equal(product.imagery.format, "image/png");
   assert.equal(product.imagery.transparent, true);
   assert.equal(product.imagery.layer, NWS_RADAR_WMS_LAYER);

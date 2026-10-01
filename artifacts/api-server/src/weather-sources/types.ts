@@ -95,6 +95,17 @@ export type SpatialImageryService = {
    * map's native CRS, so no reprojection and no axis trap.
    */
   crs: string;
+  /**
+   * Every CRS the service advertises in its own GetCapabilities.
+   *
+   * `crs` above is what the 2D map requests; this is what the provider is
+   * documented to support. They are different questions, and a renderer that
+   * needs a different projection — the globe needs an equirectangular one —
+   * must check this rather than assume. An empty list means "not established
+   * from provider documentation", and a renderer must then draw nothing
+   * rather than guess.
+   */
+  supportedCrs: readonly string[];
   format: string;
   transparent: boolean;
   /**
