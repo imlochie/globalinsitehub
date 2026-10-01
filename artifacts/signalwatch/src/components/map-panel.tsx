@@ -1,9 +1,21 @@
 import L from "leaflet";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CameraRecord } from "@workspace/api-client-react";
 import type { BriefingEvent } from "@/lib/monitoring";
 import {
+  MAP_DEFAULT_CENTER,
+  MAP_DEFAULT_ZOOM,
+  MAP_FOCUS_ZOOM,
+  MAP_MAX_ZOOM,
+  MAP_MIN_ZOOM,
+  MAP_SCALE_BAND_LABEL,
+  MAP_SCALE_BAND_QUESTION,
+  scaleBandForZoom,
+  type MapScaleBand,
+} from "@/lib/map-scale";
+import {
   buildWmsLayerOptions,
+  imageryRenderSignature,
   type RenderableImagery,
 } from "@/lib/spatial-layers";
 import "leaflet/dist/leaflet.css";
@@ -30,6 +42,13 @@ const SUPPORTED_CRS: Record<string, L.CRS> = {
   "EPSG:4326": L.CRS.EPSG4326,
 };
 
+/** What the user is currently looking at, reported on every settled view. */
+export type MapView = {
+  zoom: number;
+  band: MapScaleBand;
+  viewport: { west: number; south: number; east: number; north: number };
+};
+
 type SignalMapProps = {
   events: BriefingEvent[];
   cameras?: CameraRecord[];
@@ -45,6 +64,13 @@ type SignalMapProps = {
    * contains no condition for any particular provider.
    */
   imagery?: RenderableImagery[];
+  /**
+   * Called once per settled view change (Leaflet's moveend/zoomend), never
+   * mid-gesture. The spatial layers need it to answer two questions they
+   * cannot answer from the data alone: has the view left the provider's
+   * coverage, and has it gone finer than the source's samples.
+   */
+  onViewChange?: (view: MapView) => void;
   compact?: boolean;
   fillContainer?: boolean;
   loading?: boolean;
@@ -59,6 +85,7 @@ export function SignalMap({
   onSelectCamera,
   onSelectEvent,
   imagery = EMPTY_IMAGERY,
+  onViewChange,
   compact = false,
   fillContainer = false,
   loading = false,
@@ -66,8 +93,18 @@ export function SignalMap({
 }: SignalMapProps) {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  // Mirrored into React state purely so the scale readout can render. The
+  // layers themselves are driven from the reported view, not from this.
+  const [band, setBand] = useState<MapScaleBand>(() =>
+    scaleBandForZoom(MAP_DEFAULT_ZOOM),
+  );
   const onSelectCameraRef = useRef(onSelectCamera);
   const onSelectEventRef = useRef(onSelectEvent);
+  const onViewChangeRef = useRef(onViewChange);
+  // Read inside the raster effect so the effect can depend on a value
+  // signature instead of the array's identity. See the signature below.
+  const imageryRef = useRef(imagery);
+  imageryRef.current = imagery;
   const locatedEvents = useMemo(
     () =>
       events.filter(
@@ -92,14 +129,18 @@ export function SignalMap({
   }, [onSelectEvent]);
 
   useEffect(() => {
+    onViewChangeRef.current = onViewChange;
+  }, [onViewChange]);
+
+  useEffect(() => {
     const element = mapElementRef.current;
     if (!element) return;
 
     const map = L.map(element, {
-      center: [18, 0],
-      zoom: 2,
-      minZoom: 2,
-      maxZoom: 18,
+      center: [...MAP_DEFAULT_CENTER] as [number, number],
+      zoom: MAP_DEFAULT_ZOOM,
+      minZoom: MAP_MIN_ZOOM,
+      maxZoom: MAP_MAX_ZOOM,
       zoomControl: false,
       preferCanvas: true,
       worldCopyJump: true,
@@ -107,6 +148,32 @@ export function SignalMap({
     });
     mapRef.current = map;
     map.attributionControl.setPrefix(false);
+
+    /**
+     * Report the settled view.
+     *
+     * `moveend` and `zoomend` fire once a gesture finishes, not per frame, so
+     * this is already throttled by Leaflet. That matters: every report can
+     * change what the coverage model says, and a per-frame report would push
+     * React state on every pixel of a drag.
+     */
+    const reportView = () => {
+      const bounds = map.getBounds();
+      setBand(scaleBandForZoom(map.getZoom()));
+      onViewChangeRef.current?.({
+        zoom: map.getZoom(),
+        band: scaleBandForZoom(map.getZoom()),
+        viewport: {
+          west: bounds.getWest(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          north: bounds.getNorth(),
+        },
+      });
+    };
+    map.on("moveend", reportView);
+    map.on("zoomend", reportView);
+    reportView();
 
     L.tileLayer(OPENSTREETMAP_TILES, {
       subdomains: ["a", "b", "c"],
@@ -122,10 +189,35 @@ export function SignalMap({
 
     return () => {
       window.cancelAnimationFrame(resizeFrame);
+      map.off("moveend", reportView);
+      map.off("zoomend", reportView);
       map.remove();
       mapRef.current = null;
     };
   }, []);
+
+  /**
+   * Identity of the tile layers that should currently exist.
+   *
+   * This is the guard that makes viewport reporting safe. Every settled pan
+   * produces a new `imagery` array, because availability and the message
+   * text are resolved against the viewport. If the raster effect depended on
+   * that array it would tear down and rebuild every WMS layer on each pan,
+   * and Leaflet would re-request provider tiles far more often than the
+   * admitted ten-minute cadence allows — which the NWS appropriate-use
+   * policy treats as abuse, not merely as waste.
+   *
+   * So the effect depends on a *value* signature of what would actually be
+   * constructed: endpoint, layer, version, CRS, format, transparency,
+   * opacity, attribution, frame time and clip areas. Panning changes none of
+   * those, so the tile layers survive. Toggling the layer, a new frame, or a
+   * surface dropping out of coverage all do change them, and the layers are
+   * rebuilt exactly then.
+   */
+  const rasterSignature = useMemo(
+    () => imageryRenderSignature(imagery),
+    [imagery],
+  );
 
   /**
    * Raster surfaces.
@@ -154,9 +246,10 @@ export function SignalMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (imagery.length === 0) return;
+    const surfaces = imageryRef.current.filter((surface) => surface.render);
+    if (surfaces.length === 0) return;
 
-    const layers = imagery.flatMap((surface) => {
+    const layers = surfaces.flatMap((surface) => {
       const crs = SUPPORTED_CRS[surface.service.crs];
       if (!crs) return [];
       const { crs: _requested, ...options } = buildWmsLayerOptions(surface);
@@ -187,7 +280,7 @@ export function SignalMap({
     return () => {
       for (const layer of layers) layer.remove();
     };
-  }, [imagery]);
+  }, [rasterSignature]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -262,7 +355,9 @@ export function SignalMap({
     if (!selected) return;
     const coordinates = getCoordinates(selected.latitude, selected.longitude);
     if (!coordinates) return;
-    map.flyTo(coordinates, Math.max(map.getZoom(), 6), { duration: 0.55 });
+    map.flyTo(coordinates, Math.max(map.getZoom(), MAP_FOCUS_ZOOM), {
+      duration: 0.55,
+    });
   }, [locatedCameras, selectedCameraId]);
 
   useEffect(() => {
@@ -272,7 +367,9 @@ export function SignalMap({
     if (!selected) return;
     const coordinates = getCoordinates(selected.latitude, selected.longitude);
     if (!coordinates) return;
-    map.flyTo(coordinates, Math.max(map.getZoom(), 6), { duration: 0.55 });
+    map.flyTo(coordinates, Math.max(map.getZoom(), MAP_FOCUS_ZOOM), {
+      duration: 0.55,
+    });
   }, [locatedEvents, selectedEventId]);
 
   useEffect(() => {
@@ -303,9 +400,16 @@ export function SignalMap({
       />
 
       <div className="pointer-events-none absolute left-3 top-3 z-[500] flex max-w-[calc(100%-24px)] flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-[#071019]/90 px-3 py-2 text-[9px] text-slate-200 shadow-lg backdrop-blur">
-        <span className="font-mono uppercase tracking-[0.14em] text-slate-100">
-          Source coordinates
+        <span
+          className="font-mono uppercase tracking-[0.14em] text-slate-100"
+          data-testid="map-scale-band"
+        >
+          {MAP_SCALE_BAND_LABEL[band]}
         </span>
+        <span className="text-slate-500">·</span>
+        {/* The band means nothing as a word on its own, so the readout
+            states the question that scale is meant to answer. */}
+        <span className="text-slate-400">{MAP_SCALE_BAND_QUESTION[band]}</span>
         <span className="text-slate-500">·</span>
         <span>{locatedEvents.length} located events</span>
         {locatedCameras.length > 0 && (

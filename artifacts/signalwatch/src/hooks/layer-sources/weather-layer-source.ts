@@ -9,8 +9,16 @@
  */
 import { useMemo } from "react";
 import { useWeatherSurfaces } from "@/hooks/use-weather-surfaces";
+import { layerRegistry, layerScalePolicy } from "@/lib/layer-registry";
 import { toRenderableImagery, type RenderableImagery } from "@/lib/spatial-layers";
 import type { SpatialLayerSourceContext, SpatialLayerSourceResult } from "./types";
+
+/**
+ * Scale limits come from the layer definition, so the rule lives next to the
+ * provider metadata that justifies it rather than in this binding. Resolved
+ * once at module load: the registry is static.
+ */
+const WEATHER_SCALE = layerScalePolicy(layerRegistry.require("weather"));
 
 export type WeatherLayerSourceResult = SpatialLayerSourceResult & {
   surfaces: ReturnType<typeof useWeatherSurfaces>;
@@ -19,6 +27,7 @@ export type WeatherLayerSourceResult = SpatialLayerSourceResult & {
 export function useWeatherLayerSource({
   enabled,
   viewport,
+  band,
   now,
 }: SpatialLayerSourceContext): WeatherLayerSourceResult {
   const surfaces = useWeatherSurfaces(enabled);
@@ -33,9 +42,14 @@ export function useWeatherLayerSource({
   const imagery = useMemo<RenderableImagery[]>(() => {
     const at = now ?? new Date();
     return products
-      .map((product) => toRenderableImagery(product, viewport ?? null, at))
+      .map((product) =>
+        toRenderableImagery(product, viewport ?? null, at, {
+          band: band ?? null,
+          scale: WEATHER_SCALE,
+        }),
+      )
       .filter((entry): entry is RenderableImagery => entry !== null);
-  }, [products, viewport, now]);
+  }, [products, viewport, band, now]);
 
   return {
     layerId: "weather",

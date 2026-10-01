@@ -24,6 +24,7 @@ import {
 import {
   evaluateFreshness,
   surfaceAgeMs,
+  type RenderableImagery,
   type SpatialProduct,
 } from '@/lib/spatial-layers';
 import { StatusDot } from './status-dot';
@@ -34,6 +35,15 @@ export type WeatherLayerPanelInput = {
   enabled: boolean;
   onEnabledChange: (enabled: boolean) => void;
   products: SpatialProduct[];
+  /**
+   * The same products resolved against the current view.
+   *
+   * Kept separate from `products` because these two answer different
+   * questions. A product says what NOAA publishes; a surface says what the
+   * user is looking at right now, which is the only thing that can
+   * distinguish an empty map over Kansas from an empty map over Poland.
+   */
+  surfaces?: RenderableImagery[];
   isLoading: boolean;
   isFetching: boolean;
   hasError: boolean;
@@ -74,6 +84,22 @@ export function weatherLayerPanel(input: WeatherLayerPanelInput): LayerPanelMode
   const staleCount = products.filter(
     (product) => evaluateFreshness(product, now) === 'stale',
   ).length;
+
+  const surfaces = input.surfaces ?? [];
+  /**
+   * Surfaces that are silent because of where or how the user is looking,
+   * rather than because the provider failed.
+   *
+   * This is the distinction the whole coverage model exists to protect. An
+   * empty map has at least four different meanings and only one of them is
+   * about the weather, so the panel names the reason rather than letting the
+   * absence of pixels speak for itself.
+   */
+  const viewSilenced = surfaces.filter(
+    (surface) =>
+      surface.availability === 'outside-coverage' ||
+      surface.availability === 'beyond-resolution',
+  );
 
   const status: { label: string; tone: StatusTone } = !input.enabled
     ? { label: 'Weather surfaces not requested · layer off', tone: 'quiet' }
@@ -123,6 +149,23 @@ export function weatherLayerPanel(input: WeatherLayerPanelInput): LayerPanelMode
     ],
     details: (
       <div className="space-y-2">
+        {input.enabled && viewSilenced.length > 0
+          ? viewSilenced.map((surface) => (
+              <p
+                key={surface.key}
+                className="rounded-lg border border-sky-300/20 bg-sky-300/[0.05] px-3 py-2 text-[10px] leading-4 text-sky-100/80"
+                data-testid={`text-weather-view-state-${surface.productId}`}
+              >
+                <span className="font-mono uppercase tracking-[0.1em] text-sky-200/90">
+                  {surface.availability === 'outside-coverage'
+                    ? 'No radar source here'
+                    : 'Not drawn at this zoom'}
+                </span>
+                <br />
+                {surface.message}
+              </p>
+            ))
+          : null}
         <p
           className="rounded-lg border border-amber-200/15 bg-amber-200/[0.04] px-3 py-2 text-[10px] leading-4 text-slate-300/75"
           data-testid="text-weather-coverage-note"

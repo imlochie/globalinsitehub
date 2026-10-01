@@ -9,6 +9,7 @@
 import type { BaseObservation } from "@/lib/global-layers";
 import type { GlobalLayerContextValue } from "@/components/global-layer-provider";
 import type { LayerId } from "@/lib/layer-registry";
+import type { MapScaleBand } from "@/lib/map-scale";
 import type {
   RenderableImagery,
   SpatialBounds,
@@ -81,6 +82,12 @@ export type SpatialLayerSourceContext = {
    * hides a surface pre-emptively.
    */
   viewport: Omit<SpatialBounds, "name"> | null;
+  /**
+   * Current map scale band, used to decide whether the view has gone finer
+   * than the source's samples. Null means "not yet known" and, like an
+   * unknown viewport, never suppresses a surface.
+   */
+  band?: MapScaleBand | null;
   /** Injectable clock so freshness is testable without faking timers. */
   now?: Date;
 };

@@ -18,6 +18,7 @@
  */
 
 import type { SpatialProduct } from "@workspace/api-client-react";
+import { bandIndex, type MapScaleBand } from "./map-scale";
 
 export type { SpatialProduct };
 
@@ -39,9 +40,45 @@ export type SpatialBounds = {
 export type SpatialAvailability =
   | "covered"
   | "outside-coverage"
+  | "beyond-resolution"
   | "stale"
   | "unavailable"
   | "unconfigured";
+
+/**
+ * The scales at which a surface may be drawn, resolved from its layer.
+ *
+ * Passed in rather than read from the registry so this module stays pure and
+ * provider-agnostic: it is told the limit, it does not look one up.
+ */
+export type SpatialScaleLimit = {
+  minBand: MapScaleBand;
+  maxBand: MapScaleBand;
+  note: string | null;
+};
+
+/** How the surface is being viewed. Every field may be unknown. */
+export type SpatialViewContext = {
+  /** Current map extent, for the coverage question. */
+  viewport?: Extent | null;
+  /** Current scale band, for the resolution question. */
+  band?: MapScaleBand | null;
+  /** Scale limits of the owning layer. */
+  scale?: SpatialScaleLimit | null;
+};
+
+/**
+ * True when the view is outside the scales at which this surface is honest.
+ *
+ * Unknown band or unknown limit never suppresses: the same rule as an
+ * unknown viewport. Silence must be a decision, not a gap in information.
+ */
+export function isBeyondScale(view: SpatialViewContext): boolean {
+  const { band, scale } = view;
+  if (!band || !scale) return false;
+  const index = bandIndex(band);
+  return index < bandIndex(scale.minBand) || index > bandIndex(scale.maxBand);
+}
 
 /** Freshness vocabulary shared with the observation layers. */
 export type SpatialFreshness = "fresh" | "stale" | "unknown";
@@ -154,13 +191,18 @@ export function resolveAvailability(
   product: SpatialProduct,
   viewport: Extent | null,
   now: Date,
+  view: Omit<SpatialViewContext, "viewport"> = {},
 ): SpatialAvailability {
   if (product.availability === "unavailable") return "unavailable";
   if (product.availability === "unconfigured") return "unconfigured";
   if (!product.imagery) return "unconfigured";
+  // Coverage outranks scale. "There is no radar here" is a statement about
+  // the world; "you are zoomed past the sample spacing" is a statement about
+  // the view. When both are true the user needs the first one.
   if (isOutsideCoverage(product.coverage.areas, viewport)) {
     return "outside-coverage";
   }
+  if (isBeyondScale({ ...view, viewport })) return "beyond-resolution";
   return evaluateFreshness(product, now) === "stale" ? "stale" : "covered";
 }
 
@@ -175,6 +217,7 @@ export function resolveAvailability(
 export function describeAvailability(
   product: SpatialProduct,
   availability: SpatialAvailability,
+  scale: SpatialScaleLimit | null = null,
 ): string {
   switch (availability) {
     case "outside-coverage":
@@ -182,6 +225,15 @@ export function describeAvailability(
         `${product.providerName} does not observe this area. ` +
         `${product.coverage.note} No surface is drawn here, and that is not a ` +
         "report that conditions are clear."
+      );
+    case "beyond-resolution":
+      // Also not a weather claim: the data exists and covers this place, the
+      // view is simply finer than the samples behind it.
+      return (
+        scale?.note ??
+        `${product.productName} is not drawn at this zoom because the view is ` +
+          "finer than the spacing of the source's samples. This is not a report " +
+          "that conditions are clear."
       );
     case "unconfigured":
       return `${product.productName} is not configured in this deployment.`;
@@ -227,9 +279,19 @@ export function toRenderableImagery(
   product: SpatialProduct,
   viewport: Extent | null,
   now: Date,
-  options: { time?: string | null } = {},
+  options: {
+    time?: string | null;
+    /** Current scale band. Omitted means unknown, which never suppresses. */
+    band?: MapScaleBand | null;
+    /** Scale limits of the owning layer. */
+    scale?: SpatialScaleLimit | null;
+  } = {},
 ): RenderableImagery | null {
-  const availability = resolveAvailability(product, viewport, now);
+  const scale = options.scale ?? null;
+  const availability = resolveAvailability(product, viewport, now, {
+    band: options.band ?? null,
+    scale,
+  });
   const service = product.imagery;
   if (!service) return null;
 
@@ -249,7 +311,7 @@ export function toRenderableImagery(
     availability,
     freshness: evaluateFreshness(product, now),
     message: isRenderableCrs(service.crs)
-      ? describeAvailability(product, availability)
+      ? describeAvailability(product, availability, scale)
       : `${product.productName} is published in ${service.crs}, which this map cannot request without reprojecting it. No surface is drawn.`,
     service,
     areas: product.coverage.areas,
@@ -257,6 +319,55 @@ export function toRenderableImagery(
     opacity: service.opacity,
     time: options.time ?? null,
   };
+}
+
+/**
+ * A value identity for the tile layers a set of surfaces would construct.
+ *
+ * This exists because the renderer must be able to tell "the same tiles as
+ * before" from "different tiles", without comparing array identity. Every
+ * settled pan produces a fresh surface list — availability and the message
+ * text are resolved against the viewport — and if the renderer treated that
+ * as a change it would destroy and rebuild every WMS layer on each pan.
+ * Leaflet would then re-request provider tiles far more often than the
+ * admitted cadence allows, which the NWS appropriate-use policy treats as
+ * abuse rather than as waste.
+ *
+ * So the signature covers exactly what goes into constructing a layer —
+ * endpoint, layer name, version, CRS, format, transparency, opacity,
+ * attribution, selected frame and clip areas — and deliberately excludes
+ * availability, freshness and message, which change as the user moves
+ * without changing a single request.
+ *
+ * Surfaces that are not drawn contribute nothing, so a surface leaving
+ * coverage correctly registers as a change.
+ */
+export function imageryRenderSignature(
+  surfaces: readonly RenderableImagery[],
+): string {
+  return surfaces
+    .filter((surface) => surface.render)
+    .map((surface) =>
+      [
+        surface.key,
+        surface.service.endpoint,
+        surface.service.layer,
+        surface.service.version,
+        surface.service.crs,
+        surface.service.format,
+        String(surface.service.transparent),
+        String(surface.opacity),
+        surface.attribution,
+        surface.time ?? "",
+        surface.areas
+          .map(
+            (area) =>
+              `${area.name}:${area.west},${area.south},${area.east},${area.north}`,
+          )
+          .join("|"),
+      ].join("~"),
+    )
+    .join("\n");
 }
 
 /**

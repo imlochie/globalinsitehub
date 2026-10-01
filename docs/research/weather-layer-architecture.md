@@ -449,6 +449,24 @@ global radar federation; any observation-layer migration of `SignalMap`.
 
 ---
 
+## 11.1 Superseded by Map 2.0 (Checkpoint A)
+
+Two statements in this document were true when it was written and are no
+longer:
+
+- **"The viewport is not plumbed through."** It now is. `SignalMap` reports
+  its settled view and `useGlobalLayerData` passes `viewport` and `band` into
+  the weather source, so `outside-coverage` resolves for real and the panel
+  can say "No radar source here". The Leaflet `bounds` clip remains the
+  enforcement mechanism; the viewport is the explanation.
+- **`SpatialAvailability` has a sixth member**, `beyond-resolution`, for a
+  view finer than the source's sample spacing. Coverage still outranks it.
+
+Radar also now declares a scale policy (`maxBand: "street"`), derived from
+the 564.774 m MRMS pixel size recorded in the admission record.
+
+See `map-scale-architecture.md`.
+
 ## 12. Verification honesty
 
 No `GetMap` request has ever been issued from this workspace, and no rendered

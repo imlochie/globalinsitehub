@@ -16,6 +16,12 @@
  * (components/observation-details/).
  */
 
+import {
+  bandIndex,
+  MAP_SCALE_BANDS,
+  type MapScaleBand,
+} from "./map-scale";
+
 export type KnownLayerId =
   | "cameras"
   | "public-events"
@@ -126,6 +132,41 @@ export type LayerSamplingStrategy = {
 };
 
 /**
+ * The range of map scales at which a layer is honest to draw.
+ *
+ * This is rendering *policy*, declared by the layer, so that shared map code
+ * can decide what to show at the current scale without ever naming a layer.
+ * The alternative — `if (layerId === "weather" && zoom > 15)` in the
+ * renderer — is exactly the contamination the registry exists to prevent.
+ *
+ * Both ends mean something different:
+ *
+ *   minBand  below this scale the layer is noise. A thousand street cameras
+ *            at world zoom is not information.
+ *   maxBand  above this scale the layer would claim detail its source does
+ *            not have. A raster drawn far past its native ground resolution
+ *            is interpolation presented as observation.
+ *
+ * `note` is shown to the user when the layer is in range but suppressed, so
+ * a layer that is enabled and silent can always explain itself. An absent
+ * policy means the layer is drawn at every scale.
+ */
+export type LayerScalePolicy = {
+  /** Coarsest scale at which this layer is drawn. Defaults to `global`. */
+  minBand?: MapScaleBand;
+  /** Finest scale at which this layer is drawn. Defaults to `streetContext`. */
+  maxBand?: MapScaleBand;
+  /** Why the limit exists, in the user's words. Required when either end is set. */
+  note?: string;
+};
+
+export type ResolvedLayerScalePolicy = {
+  minBand: MapScaleBand;
+  maxBand: MapScaleBand;
+  note: string | null;
+};
+
+/**
  * How much of the world a source actually observes.
  *
  * Coverage is declared per provider because it is a property of the feed, not
@@ -181,6 +222,11 @@ export type LayerDefinition = {
   /** Only set where the renderer must bound marker counts. */
   sampling?: LayerSamplingStrategy;
   /**
+   * Scales at which this layer is drawn. Omit to draw at every scale.
+   * Shared renderers read this instead of branching on the layer id.
+   */
+  scale?: LayerScalePolicy;
+  /**
    * Coverage stated at layer level. Omit to derive it from the providers;
    * set it only when the layer's honest coverage differs from the union of
    * its providers.
@@ -193,6 +239,34 @@ export type LayerDefinition = {
  * otherwise derived from the providers. Deriving never upgrades the scope —
  * one regional provider makes the layer regional.
  */
+/**
+ * The layer's scale policy with both ends resolved.
+ *
+ * An undeclared policy is the full range rather than a guess: a layer that
+ * has not thought about scale must keep behaving exactly as it did before
+ * this model existed.
+ */
+export function layerScalePolicy(
+  definition: LayerDefinition,
+): ResolvedLayerScalePolicy {
+  const declared = definition.scale;
+  return {
+    minBand: declared?.minBand ?? MAP_SCALE_BANDS[0],
+    maxBand: declared?.maxBand ?? MAP_SCALE_BANDS[MAP_SCALE_BANDS.length - 1],
+    note: declared?.note ?? null,
+  };
+}
+
+/** True when the layer should be drawn at this scale. */
+export function isLayerVisibleAtBand(
+  definition: LayerDefinition,
+  band: MapScaleBand,
+): boolean {
+  const { minBand, maxBand } = layerScalePolicy(definition);
+  const index = bandIndex(band);
+  return index >= bandIndex(minBand) && index <= bandIndex(maxBand);
+}
+
 export function layerCoverage(definition: LayerDefinition): LayerCoverage {
   if (definition.coverage) return definition.coverage;
   const covered = definition.providers.flatMap((provider) =>
@@ -639,6 +713,28 @@ export const weatherLayerDefinition: LayerDefinition = {
     tooltipNote: "provider imagery",
     iconKey: "cloud",
   },
+  /**
+   * Drawn from world scale down to street scale, then stopped.
+   *
+   * The limit is read off the provider's own metadata, not chosen for taste.
+   * The MRMS mosaic publishes a pixel size of 564.774 m (recorded in
+   * docs/research/providers/nws-radar-wms-admission.md). Leaflet's ground
+   * resolution reaches that at about zoom 8; by the top of the `street`
+   * band (zoom 15, 4.78 m/px) one source pixel already covers roughly 118
+   * screen pixels, and in the `streetContext` band (zoom 16-18) it covers
+   * between 236 and 945. At that point nothing on screen is observation —
+   * it is interpolation between samples half a kilometre apart, drawn
+   * sharply enough to look like detail.
+   *
+   * There is no upper limit at the coarse end: a continental mosaic is
+   * exactly what the world view should show.
+   */
+  scale: {
+    maxBand: "street",
+    note:
+      "Radar samples are 565 m across, so the mosaic is not drawn below street " +
+      "scale. Zoomed in further it would show interpolation, not observation.",
+  },
   providers: [
     {
       id: "noaa-nws-radar",
@@ -719,6 +815,8 @@ export type LayerRegistry = {
   withCapability(capability: keyof LayerCapabilities): LayerDefinition[];
   /** Definitions of one structural kind. Shared pipelines filter with this. */
   byKind(kind: LayerKind): LayerDefinition[];
+  /** Definitions whose scale policy admits this band. */
+  visibleAtBand(band: MapScaleBand): LayerDefinition[];
   defaultEnablement(): LayerFlags;
   /** Returns a new registry with extra/overriding definitions (immutable). */
   with(...definitions: LayerDefinition[]): LayerRegistry;
@@ -754,6 +852,21 @@ export function isSpatialLayer(definition: LayerDefinition): boolean {
  */
 export function validateLayerDefinition(definition: LayerDefinition): void {
   const id = String(definition.id);
+
+  if (definition.scale) {
+    const { minBand, maxBand, note } = layerScalePolicy(definition);
+    if (bandIndex(minBand) > bandIndex(maxBand)) {
+      throw new Error(
+        `Layer "${id}" declares an empty scale range: minBand "${minBand}" is finer than maxBand "${maxBand}", so the layer could never be drawn.`,
+      );
+    }
+    if (!note) {
+      throw new Error(
+        `Layer "${id}" restricts its scale range but gives no note. A layer that goes silent must be able to say why.`,
+      );
+    }
+  }
+
   if (isSpatialLayer(definition)) {
     if (definition.sampling) {
       throw new Error(
@@ -813,6 +926,8 @@ export function createLayerRegistry(
     withCapability: (capability) =>
       ordered.filter((definition) => definition.capabilities[capability]),
     byKind: (kind) => ordered.filter((definition) => definition.kind === kind),
+    visibleAtBand: (band) =>
+      ordered.filter((definition) => isLayerVisibleAtBand(definition, band)),
     defaultEnablement() {
       const enablement: LayerFlags = {};
       for (const definition of ordered) {

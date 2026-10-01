@@ -6,7 +6,7 @@ import React from 'react';
  * models; planned rows come straight from the registry. No layer ids are
  * hard-coded here.
  */
-import { Activity, Archive, FlaskConical, Radio } from 'lucide-react';
+import { Activity, Archive, Check, Circle, CircleDot, FlaskConical, Radio } from 'lucide-react';
 import { layerIcon } from '@/components/layer-icons';
 import type { LayerPanelMetric, LayerPanelModel } from '@/components/layer-panels/types';
 import { layerRegistry, type LayerDefinition, type LayerRegistry } from '@/lib/layer-registry';
@@ -53,6 +53,65 @@ function Toggle({
   );
 }
 
+/**
+ * Availability and activity are different facts and are shown as such.
+ *
+ *   Available  Signalwatch has an admitted source for this layer. A property
+ *              of the registry, not of the session.
+ *   Active     the user has switched it on in this session.
+ *
+ * Collapsing the two is how an implemented layer ends up reading as missing:
+ * weather is operational and admitted, but ships switched off, and a single
+ * dimmed row cannot distinguish "we have no source for this" from "you have
+ * not turned it on". The first is a limitation of the product; the second is
+ * a choice the user already made.
+ */
+function LayerStateBadges({
+  available,
+  active,
+}: {
+  available: boolean;
+  active: boolean;
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 font-mono text-[8px] uppercase tracking-[0.1em]"
+      data-testid={`layer-state-${available ? 'available' : 'unavailable'}-${
+        active ? 'active' : 'inactive'
+      }`}
+    >
+      <span
+        className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${
+          available
+            ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-300'
+            : 'border-border/70 text-muted-foreground'
+        }`}
+      >
+        {available ? (
+          <Check className="size-2.5" aria-hidden="true" />
+        ) : (
+          <Circle className="size-2.5" aria-hidden="true" />
+        )}
+        Available
+      </span>
+      <span
+        className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 ${
+          active
+            ? 'border-primary/50 bg-primary/10 text-primary'
+            : 'border-border/70 text-muted-foreground'
+        }`}
+      >
+        {active ? (
+          <CircleDot className="size-2.5" aria-hidden="true" />
+        ) : (
+          <Circle className="size-2.5" aria-hidden="true" />
+        )}
+        {active ? 'Active' : 'Inactive'}
+      </span>
+    </span>
+  );
+}
+
 function Metric({ metric }: { metric: LayerPanelMetric }) {
   return (
     <div
@@ -95,6 +154,10 @@ function OperationalLayerRow({ panel }: { panel: LayerPanelModel }) {
               <h3 id={titleId} className="text-sm font-semibold tracking-[-0.01em]">
                 {definition.label}
               </h3>
+              <LayerStateBadges
+                available={definition.status === 'operational'}
+                active={panel.enabled}
+              />
               {panel.note ? (
                 <span
                   className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground"

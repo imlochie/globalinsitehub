@@ -177,6 +177,7 @@ export default function EventMapPage() {
               events={events}
               cameras={layerData.cameraCatalogue.cameras}
               imagery={layerData.imagery}
+              onViewChange={layerData.onViewChange}
               selectedCameraId={selectedCameraId ?? undefined}
               selectedEventId={selectedEventId ?? undefined}
               onSelectCamera={selectCamera}

@@ -130,6 +130,7 @@ export function buildLayerPanels(layerData: LayerData): LayerPanelModel[] {
         enabled: layerData.isLayerEnabled('weather'),
         onEnabledChange: (enabled) => layerData.setLayerEnabled('weather', enabled),
         products: layerData.weatherSurfaces.products,
+        surfaces: layerData.weatherImagery,
         isLoading: layerData.weatherSurfaces.isLoading,
         isFetching: layerData.weatherSurfaces.isFetching,
         hasError: layerData.weatherSurfaces.hasError,

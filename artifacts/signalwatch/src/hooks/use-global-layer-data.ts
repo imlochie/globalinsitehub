@@ -8,8 +8,9 @@
  * definition and binding one source, not adding another block of logic to the
  * shared surfaces.
  */
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGlobalLayerState } from "@/components/global-layer-provider";
+import type { MapView } from "@/components/map-panel";
 import { useBriefing } from "@/hooks/use-briefing";
 import {
   useCameraLayerSource,
@@ -123,13 +124,46 @@ export function useGlobalLayerData() {
       state: layerState,
     });
 
-  // Spatial layers run on their own channel. The viewport is not plumbed
-  // through yet: the coverage clip is applied by the renderer via Leaflet's
-  // bounds option, which is strictly stronger than filtering here because it
-  // stops the request ever being issued.
+  /**
+   * What the user is currently looking at.
+   *
+   * Two separate guarantees depend on this, and they work at different
+   * levels. The renderer clips tiles to the provider's declared areas via
+   * Leaflet's `bounds`, which is the stronger guarantee because the request
+   * is never issued at all. This state is the *explanatory* half: it is how
+   * the UI knows to say "no radar source here" when the view has left
+   * coverage, instead of leaving the user to read an empty map as calm
+   * weather. Without it the coverage model is enforced but silent.
+   *
+   * Null until the map first reports. Unknown never suppresses a surface.
+   */
+  const [mapView, setMapView] = useState<MapView | null>(null);
+
+  // Stable identity: the map stores this in a ref and would otherwise see a
+  // new callback on every render.
+  const onViewChange = useCallback((view: MapView) => {
+    setMapView((previous) =>
+      previous &&
+      previous.band === view.band &&
+      previous.viewport.west === view.viewport.west &&
+      previous.viewport.south === view.viewport.south &&
+      previous.viewport.east === view.viewport.east &&
+      previous.viewport.north === view.viewport.north
+        ? // Identical view: keep the old object so nothing downstream
+          // recomputes. Leaflet re-fires moveend for gestures that end where
+          // they started, and for invalidateSize.
+          previous
+        : view,
+    );
+  }, []);
+
+  // Spatial layers run on their own channel: `SpatialLayerSourceResult` is
+  // not a `LayerSourceResult`, so none of this can reach the marker sampler
+  // or the observation inspector.
   const weatherSource: WeatherLayerSourceResult = useWeatherLayerSource({
     enabled: layerState.isLayerEnabled("weather"),
-    viewport: null,
+    viewport: mapView?.viewport ?? null,
+    band: mapView?.band ?? null,
   });
 
   const sources = useMemo<LayerSourceResult<GlobalObservation>[]>(
@@ -207,6 +241,10 @@ export function useGlobalLayerData() {
     ...layerState,
     sources,
     spatialSources,
+    /** Current map view, or null before the map has reported one. */
+    mapView,
+    /** Handed to `SignalMap` as `onViewChange`. */
+    onViewChange,
     statusByLayer,
     observations,
     /** Surfaces cleared for rendering. Never part of `observations`. */
@@ -221,6 +259,8 @@ export function useGlobalLayerData() {
     hazardFeed: naturalHazardSource.feed,
     publicEventFeed: publicEventSource.feed,
     weatherSurfaces: weatherSource.surfaces,
+    /** View-resolved surfaces, including ones deliberately not drawn. */
+    weatherImagery: weatherSource.imagery,
     briefing,
     briefingLoading: briefingSource.isLoading,
     briefingFetching: briefingSource.isFetching,
