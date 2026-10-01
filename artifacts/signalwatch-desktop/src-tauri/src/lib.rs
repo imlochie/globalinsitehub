@@ -137,13 +137,42 @@ pub fn run() {
                 serde_json::to_string(&api_base).unwrap_or_else(|_| "null".into())
             );
 
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("Signalwatch")
-                .inner_size(1440.0, 900.0)
-                .min_inner_size(960.0, 640.0)
-                .resizable(true)
-                .initialization_script(&init)
-                .build()?;
+            // A dedicated, versioned WebView store.
+            //
+            // WebView2 persists cache, localStorage and service-worker
+            // registrations per data directory. Sharing the default store
+            // meant a worker registered by an earlier build kept serving its
+            // cached index.html, so new executables silently ran old frontend
+            // code. An explicit directory gives the desktop client a clean
+            // boundary that is independent of any browser profile, and
+            // bumping the suffix is a deliberate, reviewable way to discard
+            // persisted state in future.
+            let webview_data_dir =
+                node_compatible_path(app.path().app_local_data_dir()?.join("webview-v1"));
+            std::fs::create_dir_all(&webview_data_dir).ok();
+
+            eprintln!(
+                "signalwatch: webview data dir={}",
+                webview_data_dir.display()
+            );
+
+            #[allow(unused_mut)]
+            let mut builder =
+                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                    .title("Signalwatch")
+                    .inner_size(1440.0, 900.0)
+                    .min_inner_size(960.0, 640.0)
+                    .resizable(true)
+                    .initialization_script(&init);
+
+            // Supported on the Windows WebView2 backend; other platforms keep
+            // their platform-default store.
+            #[cfg(windows)]
+            {
+                builder = builder.data_directory(webview_data_dir);
+            }
+
+            builder.build()?;
 
             Ok(())
         })
