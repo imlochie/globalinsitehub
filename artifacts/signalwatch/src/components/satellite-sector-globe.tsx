@@ -17,7 +17,22 @@ import {
 } from "lucide-react";
 import { countryFeatures } from "@/lib/country-boundaries";
 import { GLOBE_DEFAULT_VIEW } from "@/lib/regional-priority";
-import { MeshPhongMaterial } from "three";
+import {
+  AmbientLight,
+  DirectionalLight,
+  Mesh,
+  MeshBasicMaterial,
+  MeshPhongMaterial,
+  SphereGeometry,
+} from "three";
+import {
+  SOLAR_LIVE_REFRESH_MS,
+  calculateSolarPosition,
+  geoToGlobeVector,
+  resolveSolarInstant,
+  solarLightPosition,
+  type SolarTimeState,
+} from "@/lib/solar-geometry";
 import type { SectorId } from "@/lib/sectors";
 import type {
   GlobalObservation,
@@ -111,6 +126,33 @@ const arcs = sampleLinks.flatMap(([startId, endId]) => {
  */
 const initialView = GLOBE_DEFAULT_VIEW;
 
+/**
+ * The instant the globe is depicting, as a value that changes rarely.
+ *
+ * Live mode ticks once a minute, not once a frame. The Earth turns a quarter
+ * of a degree in that time, which is invisible at globe scale, and the brief
+ * is explicit that the clock must not drive high-frequency React renders.
+ *
+ * `SolarTimeState` is threaded through rather than read from a clock inside
+ * the renderer so that a paused or simulated time can be supplied later
+ * without this component changing shape.
+ */
+function useSolarPosition(timeState: SolarTimeState = { mode: "live" }) {
+  const [instant, setInstant] = useState(() => resolveSolarInstant(timeState));
+
+  useEffect(() => {
+    if (timeState.mode !== "live") {
+      setInstant(resolveSolarInstant(timeState));
+      return;
+    }
+    setInstant(new Date());
+    const timer = setInterval(() => setInstant(new Date()), SOLAR_LIVE_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [timeState.mode, timeState.mode === "live" ? null : timeState.instant.getTime()]);
+
+  return useMemo(() => calculateSolarPosition(instant), [instant]);
+}
+
 export function SatelliteSectorGlobe({
   selectedSectorId,
   pulsingSectorId,
@@ -130,6 +172,9 @@ export function SatelliteSectorGlobe({
     "signal",
   );
   const [autoOrbit, setAutoOrbit] = useState(false);
+  // Live solar geometry. One source of truth for the light, the marker and
+  // the readout, so they cannot disagree about where the Sun is.
+  const solar = useSolarPosition();
   const [dimensions, setDimensions] = useState({ width: 680, height: 390 });
   const [globeReady, setGlobeReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -139,8 +184,12 @@ export function SatelliteSectorGlobe({
     () =>
       new MeshPhongMaterial({
         color: textureMode === "signal" ? "#71477b" : "#ffffff",
+        // Emissive is what a surface glows with regardless of lighting, so
+        // it is exactly what would erase a terminator. Kept low enough in
+        // the stylised mode to preserve its look while letting the night
+        // side genuinely darken.
         emissive: textureMode === "signal" ? "#24102f" : "#000000",
-        emissiveIntensity: textureMode === "signal" ? 0.2 : 0,
+        emissiveIntensity: textureMode === "signal" ? 0.06 : 0,
         specular: textureMode === "signal" ? "#c77cc8" : "#ffffff",
         shininess: textureMode === "signal" ? 18 : 24,
       }),
@@ -227,6 +276,49 @@ export function SatelliteSectorGlobe({
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
+
+  /**
+   * Physical solar illumination.
+   *
+   * The day/night boundary is NOT drawn. A directional light is placed over
+   * the subsolar point and three.js shades the sphere; the terminator is
+   * then the great circle where the surface turns away from the light, which
+   * is what a terminator physically is. There is no gradient overlay and no
+   * second canvas.
+   *
+   * Ambient light keeps the night side dim rather than black so that country
+   * outlines and observation markers stay legible — darkness here is a
+   * lighting state, not a loss of data.
+   */
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe || !globeReady) return;
+
+    const sun = new DirectionalLight(0xffffff, 3.2);
+    const position = solarLightPosition(solar);
+    sun.position.set(position.x, position.y, position.z);
+
+    const ambient = new AmbientLight(0xffffff, 0.22);
+    globe.lights([ambient, sun]);
+
+    return () => {
+      sun.dispose();
+      ambient.dispose();
+    };
+  }, [globeReady, solar]);
+
+  /**
+   * The subsolar point — where the Sun is directly overhead.
+   *
+   * Deliberately a custom layer rather than a point in `pointsData`: that
+   * array is sectors and observations, and a calculated planetary position
+   * must never enter an observation collection where it could be selected,
+   * inspected or counted as a record.
+   */
+  const subsolarMarker = useMemo(
+    () => [{ lat: solar.subsolarLatitude, lng: solar.subsolarLongitude }],
+    [solar],
+  );
 
   useEffect(() => () => globeMaterial.dispose(), [globeMaterial]);
 
@@ -356,6 +448,25 @@ export function SatelliteSectorGlobe({
         showAtmosphere={textureMode === "signal"}
         atmosphereColor={textureMode === "signal" ? "#b94bbb" : "#a892b8"}
         atmosphereAltitude={textureMode === "signal" ? 0.13 : 0.09}
+        customLayerData={subsolarMarker}
+        customThreeObject={() =>
+          new Mesh(
+            new SphereGeometry(1.6, 12, 12),
+            new MeshBasicMaterial({
+              color: "#ffe9a8",
+              transparent: true,
+              opacity: 0.85,
+            }),
+          )
+        }
+        customThreeObjectUpdate={(object: unknown, data: unknown) => {
+          const { lat, lng } = data as { lat: number; lng: number };
+          const point = geoToGlobeVector(lat, lng, 0.012);
+          (object as Mesh).position.set(point.x, point.y, point.z);
+        }}
+        customLayerLabel={() =>
+          `Subsolar point — the Sun is directly overhead here. Calculated, not observed.`
+        }
         polygonsData={countryFeatures}
         polygonGeoJsonGeometry="geometry"
         polygonCapColor=""
@@ -436,6 +547,23 @@ export function SatelliteSectorGlobe({
           {textureMode === "signal"
           ? "Topography · country borders · public records + illustrative sectors"
             : "Natural-color satellite · country borders"}
+        </div>
+        {/*
+          The solar readout exists so the illumination is auditable rather
+          than merely pretty: the stated subsolar coordinates can be checked
+          against any almanac, and they are the same numbers that positioned
+          the light. "Calculated" is explicit because this is the one thing
+          on the globe that comes from mathematics rather than a provider.
+        */}
+        <div
+          className="mt-1 font-mono text-[7px] uppercase tracking-[0.12em] text-amber-200/60"
+          data-testid="text-globe-solar-readout"
+        >
+          {`Sun overhead ${Math.abs(solar.subsolarLatitude).toFixed(1)}°${
+            solar.subsolarLatitude >= 0 ? "N" : "S"
+          } ${Math.abs(solar.subsolarLongitude).toFixed(1)}°${
+            solar.subsolarLongitude >= 0 ? "E" : "W"
+          } · calculated, live UTC`}
         </div>
       </div>
 
