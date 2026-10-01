@@ -624,6 +624,12 @@ now confirmed at the contract level rather than from prose.
 established, not merely unproven. It can be stated as a permanent declared
 absence rather than a gap pending research.
 
+**This does not clear DPIRD rainfall for implementation.** The same fetch
+found that the Radar API's licence basis is unsupported (finding 1 below).
+Q1 removed a capability question and opened a licensing one; any summary of
+this work that carries the first result forward without the second
+overstates where DPIRD rainfall actually stands.
+
 ### Q2 — are station observations observations, or a spatial product? **Observations.**
 
 The Weather API is roughly 26 endpoints and **every one is station-keyed**:
@@ -644,8 +650,24 @@ surface. `stations/latest` returns "all active stations by default" and
 which is the same structure the camera and maritime providers already use.
 
 **Consequence:** DPIRD station observations belong in the **observation
-pipeline (C5a)**. The working hypothesis is confirmed for both DPIRD
-capabilities, and **no part of C5a depends on the field renderer**.
+pipeline (C5a)**, and **no part of C5a depends on the field renderer**.
+
+**Scope limit on this result — read descriptions, not schemas.** What was
+fetched is the rendered specification: operation paths and their prose
+descriptions. **Response schemas were not read.** So:
+
+- *Station observations are point observations* is **established** — every
+  endpoint is station-keyed, and that is structural, not descriptive.
+- *Rainfall is a point query* is **well-supported but not verified**. The
+  spec describes `/radar/rainfall` as "rainfall for a specific radar" and
+  the summaries as resolved to "the closest radar point", which is
+  point-oriented language, and C4 recorded the same. But whether the
+  payload is one value, an array of points, or something denser per radar
+  is **unread**.
+
+The rainfall schema must be inspected before implementation rather than
+assumed from endpoint naming — which is the same discipline that caught the
+"Radar API is not radar imagery" trap one level up.
 
 ### Three findings that were not being looked for
 
@@ -670,7 +692,7 @@ start of the previous year. So one provider supplies both instrument
 observations and historical summaries — further support for keeping the
 finer taxonomy documentary rather than per-provider.
 
-**3. Rate limits are still `UNKNOWN`.** They do not appear in the rendered
+**3. Rate limits and all response schemas are still `UNKNOWN`.** They do not appear in the rendered
 specs. They may be present in the machine-readable `swagger.yaml` at each
 spec's `./swagger.yaml`, which was **not** fetched, since the authorization
 covered Q1/Q2 and those are answered. Question 2 stands open.
