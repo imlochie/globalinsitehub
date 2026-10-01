@@ -23,6 +23,37 @@ use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 /// Holds the API child process so it can be terminated with the window.
 struct ApiSidecar(Mutex<Option<Child>>);
 
+/// Converts a Windows verbatim path into a plain DOS path.
+///
+/// `resource_dir()` can return an extended-length path such as
+/// `\\?\C:\Users\...`. Node does not understand that prefix: it parses the
+/// leading `\\?\` as a UNC share and then fails with
+/// `EISDIR: illegal operation on a directory, lstat 'C:'`, which crashes the
+/// bundled runtime at startup. Stripping the prefix (and rebuilding `\\server`
+/// form for verbatim UNC paths) hands Node a path it can actually resolve.
+///
+/// Extended-length paths exist to exceed MAX_PATH, so this trades that ceiling
+/// for a runtime that starts. Install locations are well inside the limit.
+#[cfg(windows)]
+fn node_compatible_path(path: std::path::PathBuf) -> std::path::PathBuf {
+    use std::path::Path;
+
+    let text = path.to_string_lossy().into_owned();
+
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        Path::new(r"\\").join(rest)
+    } else if let Some(rest) = text.strip_prefix(r"\\?\") {
+        Path::new(rest).to_path_buf()
+    } else {
+        path
+    }
+}
+
+#[cfg(not(windows))]
+fn node_compatible_path(path: std::path::PathBuf) -> std::path::PathBuf {
+    path
+}
+
 /// Asks the OS for an unused loopback port.
 ///
 /// A fixed port would collide with another Signalwatch instance, or with
@@ -53,10 +84,20 @@ pub fn run() {
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
             let runtime_name = if cfg!(windows) { "node.exe" } else { "node" };
-            let runtime = resource_dir.join("resources/runtime").join(runtime_name);
-            let entry = resource_dir.join("resources/api/index.mjs");
+            let runtime = node_compatible_path(
+                resource_dir.join("resources/runtime").join(runtime_name),
+            );
+            let entry = node_compatible_path(
+                resource_dir.join("resources/api/index.mjs"),
+            );
 
             let port = free_port()?;
+
+            eprintln!(
+                "signalwatch: runtime={} entry={} port={port}",
+                runtime.display(),
+                entry.display()
+            );
 
             let child = Command::new(&runtime)
                 .arg(&entry)
@@ -92,7 +133,7 @@ pub fn run() {
                 serde_json::to_string(&api_base).unwrap_or_else(|_| "null".into())
             );
 
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+            WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("Signalwatch")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(960.0, 640.0)
@@ -120,4 +161,36 @@ pub fn run() {
             }
         }
     });
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::node_compatible_path;
+    use std::path::PathBuf;
+
+    #[test]
+    fn strips_the_verbatim_disk_prefix() {
+        // The exact shape resource_dir() returned when Node crashed with
+        // "EISDIR: illegal operation on a directory, lstat 'C:'".
+        let input = PathBuf::from(r"\\?\C:\Program Files\Signalwatch\resources\api\index.mjs");
+        assert_eq!(
+            node_compatible_path(input),
+            PathBuf::from(r"C:\Program Files\Signalwatch\resources\api\index.mjs")
+        );
+    }
+
+    #[test]
+    fn rebuilds_verbatim_unc_paths_as_plain_unc() {
+        let input = PathBuf::from(r"\\?\UNC\server\share\Signalwatch\runtime\node.exe");
+        assert_eq!(
+            node_compatible_path(input),
+            PathBuf::from(r"\\server\share\Signalwatch\runtime\node.exe")
+        );
+    }
+
+    #[test]
+    fn leaves_ordinary_dos_paths_untouched() {
+        let input = PathBuf::from(r"C:\Users\kain\Signalwatch\runtime\node.exe");
+        assert_eq!(node_compatible_path(input.clone()), input);
+    }
 }
