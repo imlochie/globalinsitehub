@@ -1,0 +1,61 @@
+# OSIRIS code provenance ledger
+
+Tracks every piece of Signalwatch that originated in OSIRIS, what changed, and
+the admission status of the provider behind it.
+
+OSIRIS is MIT-licensed (© 2026 simplifaisoul). **MIT covers OSIRIS's code. It
+grants nothing about the upstream data those adapters fetch** — provider terms
+remain independently authoritative for every source.
+
+OSIRIS upstream commit referenced by all entries below:
+`d972d9af5c6f45aebf6d60b8a60f229a8abbe2f1`.
+
+---
+
+## Migrated
+
+| OSIRIS origin | Signalwatch destination | Batch / commit | What was reused | What was replaced | Provider | Admission |
+| --- | --- | --- | --- | --- | --- | --- |
+| `src/app/api/cctv/finland.ts` | `artifacts/api-server/src/camera-providers/digitraffic-weathercam.ts` | Batch 1 | **Endpoint knowledge only**: that `tie.digitraffic.fi/api/weathercam/v1/stations` lists stations whose `presets` carry camera images | Everything else. `stealthFetch` → `providerFetch` with an honest `Digitraffic-User` header; inferred image handling → `classifyViewCapability` with provider-documented `documentedAs`; added licence, attribution, freshness, per-camera availability, origin pinning and preset-id validation | Fintraffic Digitraffic | **ADOPT** — CC BY 4.0 verified in `research/maritime-provider-decision.md` |
+
+### Notes on the Batch 1 migration
+
+- The OSIRIS original builds `https://weathercam.digitraffic.fi/${preset.id}.jpg`
+  unconditionally. Signalwatch prefers the provider-published `imageUrl`, pins
+  it to the documented origin, and only falls back to the documented
+  `C\d{7}` pattern — so an unexpected upstream value cannot steer the image
+  URL off-host or out of its path.
+- The OSIRIS original takes only `presets[0]` per station. Signalwatch emits
+  every preset, because each is a distinct fixed view with its own id.
+- The OSIRIS original has no concept of a camera being out of service.
+  Signalwatch reads the documented `collectionStatus` / `state` /
+  `inCollection` fields and reports `unavailable` rather than dropping the
+  record or implying it is viewable.
+
+---
+
+## Rejected OSIRIS mechanisms
+
+Recorded so a future agent does not reintroduce them.
+
+| OSIRIS origin | Why rejected |
+| --- | --- |
+| `src/lib/stealthFetch.ts` | Rotates fake browser User-Agents and fabricates a residential IP injected as `X-Forwarded-For` / `X-Real-IP`. Evades rate limits by misrepresenting the client, and destroys provenance. Replaced by `artifacts/api-server/src/lib/provider-fetch.ts` |
+| `src/app/api/cctv/sweden.ts` | Routes through `osirisai.live`, a third-party runtime dependency and someone else's recurring cost |
+| `src/app/api/maritime/route.ts` | `aisstream.io` (excluded by product decision) plus a hard-coded `PORTS` table presented inside a live dashboard |
+| `conflicts` / `frontlines` | Static zone data presented as live observation |
+| Skyline/YouTube/`streamlock.net` camera adapters | No redistribution right for the media |
+| `scanner`, `osint/sweep`, `osint/shodan`, `osint/fingerprint`, `osint/leaks`, `osint/hudsonrock` | Active reconnaissance; outside the Signalwatch safety boundary |
+
+---
+
+## Not yet migrated, pending admission
+
+| OSIRIS origin | Provider | Blocking |
+| --- | --- | --- |
+| `cctv/route.ts` (inline) | TfL JamCams | Primary terms unread |
+| `cctv/route.ts` (inline) | WSDOT | No WSDOT-authored terms; partner-camera boundary unconfirmed |
+| `cctv/route.ts` (inline) | Caltrans | No terms or image semantics established |
+| `cctv/hongkong.ts`, `netherlands.ts`, `newzealand.ts`, `iceland.ts`, `lithuania.ts`, `taiwan.ts` | various government | Per-provider licence + capability check |
+| `api/fires/route.ts` | NASA FIRMS | Free `MAP_KEY` registration decision |
+| `api/aircraft`, `api/flights` | ADSB.lol | ADOPT WITH CONDITIONS — operator contact outstanding |

@@ -247,6 +247,22 @@ export const cameraLayerDefinition: LayerDefinition = {
       attribution: "OpenTrafficCamMap contributors",
       catalogueUrl: "https://github.com/OpenTrafficCam/",
     },
+    {
+      id: "qldtraffic-cameras",
+      name: "QLDTraffic cameras (Queensland TMR)",
+      countries: ["AU"],
+      attribution:
+        "State of Queensland (Department of Transport and Main Roads), QLDTraffic",
+      catalogueUrl:
+        "https://www.data.qld.gov.au/dataset/131940-traffic-and-travel-information-geojson-api",
+    },
+    {
+      id: "digitraffic-weathercam",
+      name: "Fintraffic Digitraffic road weather cameras",
+      countries: ["FI"],
+      attribution: "Source: Fintraffic / digitraffic.fi, license CC 4.0 BY",
+      catalogueUrl: "https://www.digitraffic.fi/en/road-traffic/",
+    },
   ],
   sampling: { kind: "provider-balanced", maxMarkers: MAX_GLOBE_CAMERA_MARKERS },
 };

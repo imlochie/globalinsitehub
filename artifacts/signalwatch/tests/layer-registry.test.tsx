@@ -138,13 +138,19 @@ test("registry is the authoritative description of every layer", () => {
   assert.equal(cameras.capabilities.search, true);
   assert.deepEqual(
     cameras.providers.map((provider) => provider.id),
-    ["qld-tmr", "transport-for-nsw", "opentrafficcammap"],
+    [
+      "qld-tmr",
+      "transport-for-nsw",
+      "opentrafficcammap",
+      "qldtraffic-cameras",
+      "digitraffic-weathercam",
+    ],
   );
   assert.deepEqual(
     cameras.providers
       .filter((provider) => provider.countries.includes("AU"))
       .map((provider) => provider.id),
-    ["qld-tmr", "transport-for-nsw"],
+    ["qld-tmr", "transport-for-nsw", "qldtraffic-cameras"],
   );
   assert.equal(cameras.sampling?.kind, "provider-balanced");
   assert.equal(cameras.sampling?.maxMarkers, 180);

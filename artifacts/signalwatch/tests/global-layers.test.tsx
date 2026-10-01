@@ -137,6 +137,7 @@ test("country/provider controls request only supported catalogues", () => {
   assert.deepEqual(cameraProviderIdsForFilter("AU", "all"), [
     "qld-tmr",
     "transport-for-nsw",
+    "qldtraffic-cameras",
   ]);
   assert.deepEqual(cameraProviderIdsForFilter("AU", "qld-tmr"), ["qld-tmr"]);
   assert.deepEqual(cameraProviderIdsForFilter("AU", "transport-for-nsw"), [
