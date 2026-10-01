@@ -1,3 +1,12 @@
+STATUS: REVIEW — NOT AN ADMISSION
+
+This document records an implementation readiness review only. It does not
+authorize implementation, provider registration, credential use, ingestion,
+rendering, or redistribution, and it does not promote any C4 disposition.
+An explicit provider/capability admission is required before implementation.
+
+---
+
 # C5 — admission gate / implementation readiness review
 
 Status: **review only.** No production code, generated code, registry

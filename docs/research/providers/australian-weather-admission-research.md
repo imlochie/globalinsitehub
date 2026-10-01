@@ -1,3 +1,12 @@
+STATUS: RESEARCH — NOT AN ADMISSION
+
+This document records provider research only. Its findings do not authorize
+implementation, provider registration, credential use, ingestion, rendering,
+or redistribution. An explicit provider/capability admission is required
+before implementation.
+
+---
+
 # C4 — Australian weather source admission research
 
 Status: **research only.** No provider admitted, no code written, no registry
